@@ -80,16 +80,16 @@ Luồng xử lý dữ liệu chấm công (attendance raw) được thiết kế
 
 ### Flow tổng quát
 
-[External System / Device]
-↓
+[External]
+   ↓
 [Attendance API]
-↓
-[attendance_raw DB] ←─────────┐
-↓ │
-[Redis pending keys] │
-↓ │
-[Worker Process] ──────────────┘
-↓
+   ↓
+[attendance_raw DB] ←──┐
+   ↓                   │
+[Redis pending keys]   │
+   ↓                   │
+[Worker Process] ──────┘
+   ↓
 [attendance_daily DB]
 
 
@@ -119,16 +119,15 @@ Luồng xử lý dữ liệu chấm công (attendance raw) được thiết kế
 
 ### Flow tổng quát
 
-[Create / Update Leave / Ticket]
-↓
-[DB]
-↓
-[Redis trigger keys]
-↓
-[Worker]
-↓
+[Create / Update Leave]
+        ↓
+     [DB]
+        ↓
+     [Redis trigger]
+        ↓
+     [Worker]
+        ↓
 [attendance_daily + leave_balance]
-
 
 ### Chi tiết
 
