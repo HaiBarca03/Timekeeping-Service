@@ -1,8 +1,8 @@
-//Trạng thái nhân viên
-export const EMPLOYEE_STATUSES = {
-  PROVIDE_INFO: 'Cung cấp thông tin',
-  WAIT_CONFIRM: 'Chờ xác nhận',
-  WAIT_ONBOARD: 'Chờ onboard',
-  ONBOARDED: 'Đã onboard',
-  CANCEL_ONBOARD: 'Hủy onboard',
-} as const;
+export enum EmploymentStatusCode {
+  INFO_PENDING = 'INFO_PENDING',       // Cung cấp thông tin
+  WAITING_CONFIRM = 'WAITING_CONFIRM', // Chờ xác nhận
+  WAITING_ONBOARD = 'WAITING_ONBOARD', // Chờ onboard
+  ONBOARDED = 'ONBOARDED',             // Đã onboard (Đang làm việc)
+  CANCELLED = 'CANCELLED',             // Hủy onboard
+  RESIGNED = 'RESIGNED',               // Đã nghỉ việc
+}

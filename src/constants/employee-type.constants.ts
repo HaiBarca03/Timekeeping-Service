@@ -1,11 +1,8 @@
-//Employee Type
-export const EMPLOYEE_TYPES = {
-  INTERN: 'Thực tập',
-  COLLABORATOR: 'Cộng tác viên',
-  PART_TIME: 'Part time',
-  SHIFT: 'Ca kíp',
-  PROBATION: 'Thử việc',
-  OFFICIAL: 'Chính thức',
-} as const;
-
-export type EmployeeType = typeof EMPLOYEE_TYPES[keyof typeof EMPLOYEE_TYPES];
+export enum EmployeeTypeCode {
+  OFFICIAL = 'OFFICIAL',       // Chính thức
+  PROBATION = 'PROBATION',     // Thử việc
+  INTERN = 'INTERN',           // Thực tập
+  COLLABORATOR = 'COLLAB',     // Cộng tác viên
+  PART_TIME = 'PART_TIME',     // Part time
+  SHIFT_BASED = 'SHIFT_BASED', // Ca kíp
+}
