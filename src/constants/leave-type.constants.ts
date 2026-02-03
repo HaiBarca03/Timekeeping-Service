@@ -1,31 +1,10 @@
-//Loại nghỉ phép
-export const LEAVE_TYPES = {
-  PAID_LEAVE: {
-    name: 'Nghỉ phép có lương',
-    deduct: 1,
-  },
-  UNPAID_LEAVE: {
-    name: 'Nghỉ không hưởng lương',
-    deduct: 0,
-  },
-  WEDDING_SELF: {
-    name: 'Nghỉ chế độ - Bản thân kết hôn',
-    deduct: 0,
-  },
-  WEDDING_CHILD: {
-    name: 'Nghỉ chế độ - Con cái kết hôn',
-    deduct: 0,
-  },
-  FUNERAL: {
-    name: 'Nghỉ chế độ - Nghỉ hiếu',
-    deduct: 0,
-  },
-  PATERNITY: {
-    name: 'Nghỉ chế độ - Nhân viên nam có vợ sinh con (Bảo hiểm chi trả)',
-    deduct: 0,
-  },
-  MATERNITY: {
-    name: 'Nghỉ chế độ - Thai sản',
-    deduct: 0,
-  },
-} as const;
+export enum LeaveTypeCode {
+  ANNUAL_LEAVE = 'ANNUAL_LEAVE',        // Nghỉ phép có lương
+  UNPAID_LEAVE = 'UNPAID_LEAVE',        // Nghỉ không hưởng lương
+  MARRIAGE_SELF = 'MARRIAGE_SELF',      // Nghỉ kết hôn (bản thân)
+  MARRIAGE_CHILD = 'MARRIAGE_CHILD',    // Nghỉ kết hôn (con cái)
+  FUNERAL = 'FUNERAL',                  // Nghỉ hiếu
+  MATERNITY = 'MATERNITY',              // Nghỉ thai sản
+  PATERNITY = 'PATERNITY',              // Vợ sinh con (cho nam)
+  SICK_LEAVE = 'SICK_LEAVE',            // Nghỉ ốm (BHXH)
+}

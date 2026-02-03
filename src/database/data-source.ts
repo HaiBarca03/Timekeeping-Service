@@ -1,6 +1,7 @@
 import { join } from 'path';
 import 'reflect-metadata';
 import { DataSource, DataSourceOptions } from 'typeorm';
+import 'dotenv/config';  
 
 export const AppDataSource = new DataSource({
   type: process.env.DATABASE_TYPE,
@@ -17,11 +18,7 @@ export const AppDataSource = new DataSource({
   keepConnectionAlive: true,
   logging: process.env.NODE_ENV !== 'production',
   entities: [
-    join(
-      __dirname,
-      '..',
-      '**/database/entities/*.entity.{ts,js}',
-    ),
+    join(__dirname, '..', '**/*.entity.{ts,js}'),
   ],
   migrations: [join(__dirname, '..', '**/migrations/*.{ts,js}')],
   cli: {

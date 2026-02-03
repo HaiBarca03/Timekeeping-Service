@@ -1,0 +1,22 @@
+export enum EmployeeLevelCode {
+  A1 = 'A1',
+  A2 = 'A2',
+  A3 = 'A3',
+  B1 = 'B1',
+  B2 = 'B2',
+  B3 = 'B3',
+  C1 = 'C1',
+  C2 = 'C2',
+  C3 = 'C3',
+  D1_VP = 'D1_VP', // Khối văn phòng
+  D2_VP = 'D2_VP',
+  D3_VP = 'D3_VP',
+  D1_CH = 'D1_CH', // Khối cửa hàng
+  D2_CH = 'D2_CH',
+  D3_CH = 'D3_CH',
+  E1 = 'E1',
+  E2 = 'E2',
+  E3 = 'E3',
+  TTS = 'TTS',     // Thực tập sinh
+  CTV = 'CTV',     // Cộng tác viên
+}
