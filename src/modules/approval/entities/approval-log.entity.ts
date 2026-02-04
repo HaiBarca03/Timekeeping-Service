@@ -14,15 +14,15 @@ import { ApprovalWorkflowStep } from './approval-workflow-step.entity';
 export class ApprovalLog extends BaseEntity {
   @Field(() => ID)
   @Column({ type: 'bigint' })
-  company_id: number;
+  company_id: string;
 
   @Field(() => ID, { nullable: true })
   @Column({ type: 'bigint', nullable: true })
-  workflow_id: number;
+  workflow_id: string;
 
   @Field(() => ID, { nullable: true })
   @Column({ type: 'bigint', nullable: true })
-  workflow_step_id: number;
+  workflow_step_id: string;
 
   @Field()
   @Column()
@@ -30,7 +30,7 @@ export class ApprovalLog extends BaseEntity {
 
   @Field(() => ID)
   @Column({ type: 'bigint' })
-  request_id: number; // ID của bản ghi request tương ứng
+  request_id: string; // ID của bản ghi request tương ứng
 
   @Field()
   @Column()
@@ -42,7 +42,7 @@ export class ApprovalLog extends BaseEntity {
 
   @Field(() => ID, { nullable: true })
   @Column({ type: 'bigint', nullable: true })
-  acted_by_employee_id: number;
+  acted_by_employee_id: string;
 
   @Field()
   @Column({ type: 'timestamp' })

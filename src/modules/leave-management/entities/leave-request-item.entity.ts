@@ -10,11 +10,11 @@ import { AttendanceDailyTimesheet } from '../../attendance/entities/attendance-d
 export class LeaveRequestItem extends BaseEntity {
   @Field(() => ID)
   @Column({ type: 'bigint' })
-  request_id: number;
+  request_id: string;
 
   @Field(() => ID)
   @Column({ type: 'bigint' })
-  daily_timesheet_id: number;
+  daily_timesheet_id: string;
 
   @Field(() => Float)
   @Column({ type: 'decimal', precision: 6, scale: 2 })

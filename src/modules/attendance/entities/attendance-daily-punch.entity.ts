@@ -7,9 +7,10 @@ import { AttendanceDailyTimesheet } from './attendance-daily-timesheet.entity';
 @Entity('attendance_daily_punches')
 @Index(['daily_timesheet_id', 'punch_index'], { unique: true })
 export class AttendanceDailyPunch extends BaseEntity {
-  @Field(() => ID)
-  @Column({ type: 'bigint' })
-  daily_timesheet_id: number;
+  @Field(() => ID, { nullable: true })
+  @Column({ type: 'bigint', nullable: true })
+  daily_timesheet_id: string | null;
+
 
   @Field(() => Int)
   @Column()

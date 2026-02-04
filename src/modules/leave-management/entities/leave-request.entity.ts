@@ -13,19 +13,19 @@ import { LeaveRequestItem } from './leave-request-item.entity';
 export class LeaveRequest extends BaseEntity {
   @Field(() => ID)
   @Column({ type: 'bigint' })
-  company_id: number;
+  company_id: string;
 
   @Field(() => ID)
   @Column({ type: 'bigint' })
-  requester_id: number;
+  requester_id: string;
 
   @Field(() => ID)
   @Column({ type: 'bigint' })
-  employee_id: number;
+  employee_id: string;
 
   @Field(() => ID)
   @Column({ type: 'bigint' })
-  leave_type_id: number;
+  leave_type_id: string;
 
   @Field({ nullable: true })
   @Column({ nullable: true })

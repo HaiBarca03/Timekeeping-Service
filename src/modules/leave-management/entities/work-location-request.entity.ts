@@ -9,9 +9,9 @@ import { WorkLocationRequestItem } from './work-location-request-item.entity';
 @ObjectType()
 @Entity('work_location_requests')
 export class WorkLocationRequest extends BaseEntity {
-  @Field(() => ID) @Column({ type: 'bigint' }) company_id: number;
-  @Field(() => ID) @Column({ type: 'bigint' }) requester_id: number;
-  @Field(() => ID) @Column({ type: 'bigint' }) request_type_id: number; // remote/onsite...
+  @Field(() => ID) @Column({ type: 'bigint' }) company_id: string;
+  @Field(() => ID) @Column({ type: 'bigint' }) requester_id: string;
+  @Field(() => ID) @Column({ type: 'bigint' }) request_type_id: string; // remote/onsite...
 
   @Field() @Column() status: string;
   @Field() @Column({ type: 'timestamp' }) start_time: Date;

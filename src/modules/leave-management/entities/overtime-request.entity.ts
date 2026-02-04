@@ -10,11 +10,11 @@ import { Employee } from '../../master-data/entities/employee.entity';
 @ObjectType()
 @Entity('overtime_request')
 export class OvertimeRequest extends BaseEntity {
-  @Field(() => ID) @Column({ type: 'bigint' }) company_id: number;
-  @Field(() => ID) @Column({ type: 'bigint' }) requester_id: number;
-  @Field(() => ID, { nullable: true }) @Column({ type: 'bigint', nullable: true }) shift_id: number;
-  @Field(() => ID, { nullable: true }) @Column({ type: 'bigint', nullable: true }) daily_timesheet_id: number;
-  @Field(() => ID) @Column({ type: 'bigint' }) conversion_type_id: number;
+  @Field(() => ID) @Column({ type: 'bigint' }) company_id: string;
+  @Field(() => ID) @Column({ type: 'bigint' }) requester_id: string;
+  @Field(() => ID, { nullable: true }) @Column({ type: 'bigint', nullable: true }) shift_id: string;
+  @Field(() => ID, { nullable: true }) @Column({ type: 'bigint', nullable: true }) daily_timesheet_id: string;
+  @Field(() => ID) @Column({ type: 'bigint' }) conversion_type_id: string;
 
   @Field() @Column() status: string;
   @Field() @Column({ type: 'timestamp' }) start_time: Date;

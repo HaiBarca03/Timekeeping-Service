@@ -13,11 +13,11 @@ import { Company } from '../../master-data/entities/company.entity';
 export class AttendanceDailyTimesheet extends BaseEntity {
   @Field(() => ID)
   @Column({ type: 'bigint' })
-  company_id: number;
+  company_id: string;
 
   @Field(() => ID)
   @Column({ type: 'bigint' })
-  employee_id: number;
+  employee_id: string;
 
   @Field()
   @Column({ type: 'date' })
@@ -77,10 +77,7 @@ export class AttendanceDailyTimesheet extends BaseEntity {
   punchRecord: AttendancePunchRecord;
 
 
-  @Field(() => () => LeaveRequestItem)
-  @OneToMany(
-    () => LeaveRequestItem,
-    item => item.dailyTimesheet,
-  )
+    @Field(() => [LeaveRequestItem], { nullable: 'itemsAndList' }) 
+  @OneToMany(() => LeaveRequestItem, item => item.dailyTimesheet)
   leaveRequestItems: LeaveRequestItem[];
 }
