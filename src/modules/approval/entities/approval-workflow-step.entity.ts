@@ -11,7 +11,7 @@ import { JobLevel } from '../../master-data/entities/job-level.entity';
 export class ApprovalWorkflowStep extends BaseEntity {
   @Field(() => ID)
   @Column({ type: 'bigint' })
-  workflow_id: number;
+  workflow_id: string;
 
   @Field(() => Int)
   @Column()
@@ -27,11 +27,11 @@ export class ApprovalWorkflowStep extends BaseEntity {
 
   @Field(() => ID, { nullable: true })
   @Column({ type: 'bigint', nullable: true })
-  approver_employee_id: number;
+  approver_employee_id: string;
 
   @Field(() => ID, { nullable: true })
   @Column({ type: 'bigint', nullable: true })
-  approver_job_level_id: number;
+  approver_job_level_id: string;
 
   @Field({ defaultValue: true })
   @Column({ default: true })

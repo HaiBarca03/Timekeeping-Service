@@ -9,9 +9,9 @@ import { TimesheetAdjustmentType } from '../../master-data/entities/timesheet-ad
 @ObjectType()
 @Entity('timesheet_adjustment_requests')
 export class TimesheetAdjustmentRequest extends BaseEntity {
-  @Field(() => ID) @Column({ type: 'bigint' }) company_id: number;
-  @Field(() => ID) @Column({ type: 'bigint' }) requester_id: number;
-  @Field(() => ID) @Column({ type: 'bigint' }) adjustment_type_id: number;
+  @Field(() => ID) @Column({ type: 'bigint' }) company_id: string;
+  @Field(() => ID) @Column({ type: 'bigint' }) requester_id: string;
+  @Field(() => ID) @Column({ type: 'bigint' }) adjustment_type_id: string;
 
   @Field() @Column() status: string;
   @Field() @Column({ type: 'date' }) date_of_error: Date;

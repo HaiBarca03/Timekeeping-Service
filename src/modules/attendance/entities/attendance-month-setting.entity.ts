@@ -10,7 +10,7 @@ import { Company } from '../../master-data/entities/company.entity';
 export class AttendanceMonthSetting extends BaseEntity {
   @Field(() => ID)
   @Column({ type: 'bigint' })
-  company_id: number;
+  company_id: string;
 
   @Field()
   @Column()

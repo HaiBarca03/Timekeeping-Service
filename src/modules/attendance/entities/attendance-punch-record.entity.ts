@@ -11,15 +11,15 @@ import { GraphQLJSON } from 'graphql-type-json';
 export class AttendancePunchRecord extends BaseEntity {
   @Field(() => ID)
   @Column({ type: 'bigint' })
-  company_id: number;
+  company_id: string;
 
   @Field(() => ID)
   @Column({ type: 'bigint' })
-  employee_id: number;
+  employee_id: string;
 
   @Field({ nullable: true })
   @Column({ type: 'bigint', nullable: true })
-  daily_timesheet_id: number;
+  daily_timesheet_id: string;
 
   @Field()
   @Index({ unique: true })

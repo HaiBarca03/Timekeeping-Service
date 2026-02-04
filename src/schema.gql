@@ -1,0 +1,310 @@
+# ------------------------------------------------------
+# THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
+# ------------------------------------------------------
+
+type AttendanceDailyTimesheet {
+  actual_workday: Float!
+  attendance_date: DateTime!
+  business_trip_value: Float!
+  company: Company!
+  company_id: ID!
+  employee: Employee!
+  employee_id: ID!
+  leaveRequestItems: [LeaveRequestItem]
+  leave_value: Float!
+  month: Float!
+  online_value: Float!
+  punchRecord: AttendancePunchRecord!
+  total_workday: Float!
+  unpaid_leave_value: Float!
+  year: Float!
+}
+
+type AttendanceGroup {
+  company: Company
+  companyId: ID!
+  defaultShift: Shift
+  defaultShiftId: ID
+  groupName: String!
+}
+
+type AttendanceMethod {
+  company: Company
+  companyId: ID!
+  methodName: String!
+}
+
+type AttendanceMonthSetting {
+  closing_date: DateTime
+  company: Company!
+  company_id: ID!
+  month: Float!
+  standard_workdays: Float!
+  year: Float!
+}
+
+type AttendanceMonthlyTimesheet {
+  actual_workday_days: Float!
+  company: Company!
+  company_id: ID!
+  confirmation_status: String
+  employee: Employee!
+  employee_id: ID!
+  late_count: Float!
+  month: Float!
+  total_late_minutes: Float!
+  total_overtime_minutes: Float!
+  year: Float!
+}
+
+type AttendancePunchRecord {
+  address: String
+  company: Company!
+  company_id: ID!
+  dailyTimesheet: AttendanceDailyTimesheet!
+  daily_timesheet_id: String
+  employee: Employee!
+  employee_id: ID!
+  lark_record_id: String!
+  latitude: Float
+  longitude: Float
+  punch_result: String
+  punch_time: DateTime!
+  punch_type: String
+  raw_payload: JSON
+  source_type: String
+}
+
+type Company {
+  attendanceMonthSettings: [AttendanceMonthSetting]
+  attendanceMonthlyTimesheets: [AttendanceMonthlyTimesheet]
+  attendancePunchRecords: [AttendancePunchRecord]
+  attendanceTimesheets: [AttendanceDailyTimesheet]
+  companyName: String!
+  employees: [Employee]
+}
+
+"""
+A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
+"""
+scalar DateTime
+
+type Employee {
+  attendanceGroup: AttendanceGroup
+  attendanceMethod: AttendanceMethod
+  attendanceMonthlyTimesheets: [AttendanceMonthlyTimesheet]
+  attendancePunchRecords: [AttendancePunchRecord]
+  attendanceTimesheets: [AttendanceDailyTimesheet]
+  company: Company!
+  companyId: ID!
+  email: String
+  employeeCode: String!
+  employeeStatus: EmployeeStatus
+  employeeType: EmployeeType
+  fullName: String!
+  jobLevel: JobLevel
+  larkAccount: String
+  leavePolicy: LeavePolicy
+  leaveRequests: [LeaveRequest]
+  manager: Employee
+  managerId: ID
+  phoneNumber: String
+  standardWorkdays: Float
+  subordinates: [Employee]
+}
+
+type EmployeeStatus {
+  company: Company
+  companyId: ID!
+  statusName: String!
+}
+
+type EmployeeType {
+  company: Company
+  companyId: ID!
+  typeName: String!
+}
+
+"""
+The `JSON` scalar type represents JSON values as specified by [ECMA-404](http://www.ecma-international.org/publications/files/ECMA-ST/ECMA-404.pdf).
+"""
+scalar JSON
+
+type JobLevel {
+  company: Company
+  companyId: ID!
+  levelName: String!
+}
+
+type LeavePolicy {
+  company: Company!
+  companyId: ID!
+  policyName: String!
+  rules: [LeavePolicyRule]
+  standardWorkdaysInPolicy: Float
+}
+
+type LeavePolicyRule {
+  isDeductLeave: Boolean!
+  leaveType: LeaveType!
+  leaveTypeId: ID!
+  policy: LeavePolicy!
+  policyId: ID!
+  quotaDays: Float
+}
+
+type LeaveRequest {
+  approved_at: DateTime
+  company: Company!
+  company_id: ID!
+  employee: Employee!
+  employee_id: ID!
+  end_time: DateTime!
+  items: [LeaveRequestItem]!
+  leave_hours: Float!
+  leave_type: LeaveType!
+  leave_type_detail: String
+  leave_type_id: ID!
+  reason: String
+  requester: Employee!
+  requester_id: ID!
+  start_time: DateTime!
+  status: String!
+  submitted_at: DateTime!
+}
+
+type LeaveRequestItem {
+  daily_timesheet_id: ID!
+  leave_minutes: Int!
+  leave_value: Float!
+  request_id: ID!
+}
+
+type LeaveType {
+  company: Company!
+  companyId: ID!
+  isDeductLeave: Boolean!
+  leaveTypeName: String!
+}
+
+type Mutation {
+  receiveRawPunch(input: RawPunchInput!): AttendancePunchRecord!
+}
+
+type OvertimeConversionType {
+  company: Company
+  companyId: ID!
+  conversionName: String!
+  multiplier: Float!
+}
+
+type Query {
+  health: String!
+}
+
+input RawPunchInput {
+  address: String
+  company_id: String!
+  employee_id: String!
+  lark_record_id: String!
+  latitude: Float
+  longitude: Float
+  punch_result: String
+  punch_time: DateTime!
+  punch_type: String
+  raw_payload: JSON
+  source_type: String
+}
+
+type Shift {
+  company: Company
+  companyId: ID!
+  fields: [ShiftField]
+  restRules: [ShiftRestRule]
+  rule: ShiftRule
+  shiftName: String!
+}
+
+type ShiftField {
+  fieldName: String
+  isFlexible: Boolean!
+  noNeedOff: Boolean!
+  punchTimeNumber: Int
+  shift: Shift
+  shiftId: ID!
+}
+
+type ShiftRestRule {
+  restBeginTime: String
+  restEndTime: String
+  shift: Shift
+  shiftId: ID!
+}
+
+type ShiftRule {
+  earlyMinutesAsEarly: Int
+  earlyMinutesAsLack: Int
+  lateMinutesAsLack: Int
+  lateMinutesAsLate: Int
+  offDelayMinutes: Int
+  offTime: String
+  onAdvanceMinutes: Int
+  onTime: String
+  shift: Shift
+  shiftId: ID!
+}
+
+type TimesheetAdjustmentRequest {
+  adjustment_type: TimesheetAdjustmentType!
+  adjustment_type_id: ID!
+  company: Company!
+  company_id: ID!
+  date_of_error: DateTime!
+  items: [TimesheetAdjustmentRequestItem]!
+  original_record: String
+  replenishment_time: DateTime
+  requester: Employee!
+  requester_id: ID!
+  status: String!
+}
+
+type TimesheetAdjustmentRequestItem {
+  daily_timesheet: AttendanceDailyTimesheet!
+  daily_timesheet_id: ID!
+  note: String
+  request: TimesheetAdjustmentRequest!
+  request_id: ID!
+}
+
+type TimesheetAdjustmentType {
+  adjustmentTypeName: String!
+  company: Company
+  companyId: ID!
+}
+
+type WorkLocationRequest {
+  company: Company!
+  company_id: ID!
+  end_time: DateTime!
+  items: [WorkLocationRequestItem]!
+  location: String
+  request_type: WorkLocationRequestType!
+  request_type_id: ID!
+  requester: Employee!
+  requester_id: ID!
+  start_time: DateTime!
+  status: String!
+}
+
+type WorkLocationRequestItem {
+  daily_timesheet: AttendanceDailyTimesheet!
+  daily_timesheet_id: ID!
+  request: WorkLocationRequest!
+  request_id: ID!
+}
+
+type WorkLocationRequestType {
+  company: Company
+  companyId: ID!
+  typeName: String!
+}

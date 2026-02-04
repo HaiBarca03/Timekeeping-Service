@@ -30,7 +30,7 @@ export class Company extends BaseEntity {
   @OneToMany(() => AttendancePunchRecord, rec => rec.company)
   attendancePunchRecords: AttendancePunchRecord[];
 
-  @Field()
-  @OneToMany(() => Employee , employee => employee.company)
+  @Field(() => [Employee], { nullable: 'itemsAndList' }) 
+  @OneToMany(() => Employee, employee => employee.company)
   employees: Employee[];
 }

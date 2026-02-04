@@ -8,8 +8,8 @@ import { WorkLocationRequest } from './work-location-request.entity';
 @Entity('work_location_request_items')
 @Index(['request_id', 'daily_timesheet_id'], { unique: true })
 export class WorkLocationRequestItem extends BaseEntity {
-  @Field(() => ID) @Column({ type: 'bigint' }) request_id: number;
-  @Field(() => ID) @Column({ type: 'bigint' }) daily_timesheet_id: number;
+  @Field(() => ID) @Column({ type: 'bigint' }) request_id: string;
+  @Field(() => ID) @Column({ type: 'bigint' }) daily_timesheet_id: string;
 
   @Field(() => WorkLocationRequest)
   @ManyToOne(() => WorkLocationRequest, (req) => req.items)

@@ -9,9 +9,9 @@ import { Company } from '../../master-data/entities/company.entity';
 @Entity('leave_balance_transactions')
 @Index(['company_id', 'employee_id', 'transaction_date'])
 export class LeaveBalanceTransaction extends BaseEntity {
-  @Field(() => ID) @Column({ type: 'bigint' }) company_id: number;
-  @Field(() => ID) @Column({ type: 'bigint' }) employee_id: number;
-  @Field(() => ID) @Column({ type: 'bigint' }) leave_type_id: number;
+  @Field(() => ID) @Column({ type: 'bigint' }) company_id: string;
+  @Field(() => ID) @Column({ type: 'bigint' }) employee_id: string;
+  @Field(() => ID) @Column({ type: 'bigint' }) leave_type_id: string;
 
   @Field()
   @Column({ type: 'date' })

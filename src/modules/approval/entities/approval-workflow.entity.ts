@@ -10,7 +10,7 @@ import { ApprovalWorkflowStep } from './approval-workflow-step.entity';
 export class ApprovalWorkflow extends BaseEntity {
   @Field(() => ID)
   @Column({ type: 'bigint' })
-  company_id: number;
+  company_id: string;
 
   @Field()
   @Column()
