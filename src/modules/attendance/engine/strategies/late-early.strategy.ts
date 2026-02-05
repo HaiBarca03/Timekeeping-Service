@@ -7,46 +7,35 @@ import { RuleFactoryService } from '../services/rule-factory.service';
 export class LateEarlyStrategy {
   constructor(private ruleFactory: RuleFactoryService) {}
 
-  /**
-   * Xử lý phạt trễ/sớm và miss punch cho toàn bộ ngày
-   */
   process(context: CalculationContext): void {
-    // Không có rule ca (onTime/offTime) → skip
     if (!context.shiftContext?.rule) return;
 
-    // Lấy rule động theo công ty / nhóm ca / loại nhân viên
     const rule = this.ruleFactory.getLateEarlyRule(
       context.companyName,
       context.attendanceGroupName,
       context.employee.employeeType?.typeName,
     );
 
-    // Bỏ qua toàn bộ phạt nếu nhân viên thuộc loại ignore (ví dụ TTS, CTV)
-    // if (rule.ignoreForTypes?.includes(context.employee.employeeType?.typeName as any)) {
-    //   return;
-    // }
-
     let totalLateMin = 0;
     let totalEarlyMin = 0;
     let missInPenalty = 0;
     let missOutPenalty = 0;
 
-    // Chuyển giờ chuẩn thành Date object cùng ngày
-    const onTime = this.parseTime(context.date, context.shiftContext.rule.onTime!);
-    const offTime = this.parseTime(context.date, context.shiftContext.rule.offTime!);
+    // SỬA TẠI ĐÂY: Tạo mốc thời gian chuẩn ca làm việc theo UTC để so sánh với punch_time
+    const onTime = this.parseTimeUTC(context.date, context.shiftContext.rule.onTime!);
+    const offTime = this.parseTimeUTC(context.date, context.shiftContext.rule.offTime!);
 
-    // Duyệt từng cặp punch
     for (const punch of context.punches) {
-      // === Phạt trễ (late): check-in muộn ===
+      // 1. Xử lý Check-in
       if (punch.check_in_time) {
-        // Số phút trễ (nếu âm → vào sớm, thường không phạt)
+        // differenceInMinutes(A, B) = A - B
         const lateMin = differenceInMinutes(punch.check_in_time, onTime);
-
+        
+        // Chỉ tính phạt nếu lateMin > 0 (tức là đến sau giờ onTime)
         if (lateMin > rule.allowedLateMinutes) {
           totalLateMin += lateMin;
-          punch.late_hours = lateMin / 60; // Lưu vào punch để hiển thị DB
+          punch.late_hours = lateMin / 60;
 
-          // Tìm ngưỡng phạt cao nhất thỏa mãn (sort descending threshold)
           let penalty = 0;
           for (const p of rule.latePenalties.sort((a, b) => b.threshold - a.threshold)) {
             if (lateMin >= p.threshold) {
@@ -55,17 +44,21 @@ export class LateEarlyStrategy {
             }
           }
           context.latePenalty += penalty;
+        } else {
+          // Đi sớm hoặc đúng giờ thì late_hours phải bằng 0
+          punch.late_hours = 0;
         }
       } else {
-        // Miss check-in hoàn toàn → phạt nặng
+        punch.check_in_time = onTime; 
+        punch.miss_check_in = true;
         missInPenalty += rule.missCheckInPenalty;
       }
 
-      // === Phạt về sớm (early): check-out sớm ===
+      // 2. Xử lý Check-out
       if (punch.check_out_time) {
-        // Số phút về sớm
+        // differenceInMinutes(offTime, punch_time) = Giờ về quy định - Giờ về thực tế
         const earlyMin = differenceInMinutes(offTime, punch.check_out_time);
-
+        
         if (earlyMin > rule.allowedEarlyMinutes) {
           totalEarlyMin += earlyMin;
           punch.early_hours = earlyMin / 60;
@@ -78,29 +71,25 @@ export class LateEarlyStrategy {
             }
           }
           context.earlyPenalty += penalty;
+        } else {
+          punch.early_hours = 0;
         }
       } else if (punch.check_in_time) {
-        // Có check-in nhưng miss check-out → phạt miss out
-        missOutPenalty += rule.missCheckOutPenalty;
-
-        // Optional: Default check_out_time về giờ offTime để tính giờ làm sau
-        punch.check_out_time = offTime;
+        missOutPenalty += rule.missCheckOutPenalty; 
+        punch.check_out_time = offTime; 
+        punch.miss_check_out = true;
       }
     }
 
-    // Lưu tổng hợp để trừ công ở WorkdayCalculationStrategy
     context.totalLateMinutes = totalLateMin;
     context.totalEarlyMinutes = totalEarlyMin;
     context.missPenalty = missInPenalty + missOutPenalty;
   }
 
-  /**
-   * Chuyển string giờ (HH:mm:ss) thành Date object cùng ngày với context.date
-   */
-  private parseTime(date: Date, timeStr: string): Date {
+  private parseTimeUTC(date: Date, timeStr: string): Date {
     const [h, m] = timeStr.split(':').map(Number);
     const dt = new Date(date);
-    dt.setHours(h, m, 0, 0);
+    dt.setUTCHours(h, m, 0, 0); 
     return dt;
   }
 }

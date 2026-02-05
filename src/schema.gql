@@ -75,6 +75,13 @@ type AttendancePunchRecord {
   source_type: String
 }
 
+type BatchPunchResult {
+  message: String
+  queuedCalculations: Int
+  savedCount: Int!
+  savedIds: [String!]
+}
+
 type Company {
   attendanceMonthSettings: [AttendanceMonthSetting]
   attendanceMonthlyTimesheets: [AttendanceMonthlyTimesheet]
@@ -188,7 +195,7 @@ type LeaveType {
 }
 
 type Mutation {
-  receiveRawPunch(input: RawPunchInput!): AttendancePunchRecord!
+  receiveBatchPunch(inputs: [RawPunchInput!]!): BatchPunchResult!
 }
 
 type OvertimeConversionType {

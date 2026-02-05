@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ShiftResolverService } from './services/shift-resolver.service';
@@ -15,6 +15,7 @@ import { Employee } from 'src/modules/master-data/entities/employee.entity';
 
 @Injectable()
 export class AttendanceEngine {
+  private readonly logger = new Logger(AttendanceEngine.name);
   constructor(
     @InjectRepository(Employee)
     private employeeRepo: Repository<Employee>,
@@ -41,26 +42,63 @@ export class AttendanceEngine {
    * @returns AttendanceDailyTimesheet đã tính xong (chưa save, caller có thể save)
    */
   async calculateDailyForEmployee(employeeId: string, date: Date): Promise<AttendanceDailyTimesheet> {
-    // 1. Lấy thông tin nhân viên (với relations cần thiết)
+    this.logger.log(`--- DEBUG: Bắt đầu tính công cho Emp: ${employeeId} ngày ${date.toISOString()} ---`);
+    
     const employee = await this.getEmployee(employeeId);
-
-    // 2. Tạo context chứa toàn bộ dữ liệu trung gian
     const context = new CalculationContext(employee, date);
-
-    // 3. Lấy shift + rule + rest rules
     context.shiftContext = await this.shiftResolver.resolveShift(context);
 
-    // 4. Chain các strategy theo thứ tự logic
-    this.punchStrategy.process(context);                    // Xử lý punches đầu tiên
-    this.breakStrategy.process(context);                    // Trừ break
-    this.lateEarlyStrategy.process(context);                // Phạt trễ/sớm/miss
-    await this.overtimeStrategy.process(context);           // OT request (async query)
-    await this.remoteStrategy.process(context);             // Remote/online/công tác (async)
-    this.workdayStrategy.process(context);                  // Tổng hợp finalActualWorkday
+    // 0. Kiểm tra cấu hình ca và giờ nghỉ
+    const shift = context.shiftContext?.shift;
+    if (shift) {
+        this.logger.log(`[Debug] Ca làm việc: ${shift.shiftName}`);
+        this.logger.log(`[Debug] Giờ quy định: ${context.shiftContext.rule?.onTime} - ${context.shiftContext.rule?.offTime}`);
+        this.logger.log(`[Debug] Số lượng rules nghỉ (RestRules): ${context.shiftContext.restRules?.length || 0}`);
+        context.shiftContext.restRules?.forEach((r, i) => {
+            this.logger.log(`   -> Rule nghỉ ${i+1}: ${r.restBeginTime} - ${r.restEndTime}`);
+        });
+    }
 
-    // 5. Map context → entity & save (hoặc update) vào DB
+    // 1. Xử lý dữ liệu quẹt thẻ thô
+    await this.punchStrategy.process(context); 
+    this.logger.log(`[Debug] Sau PunchStrategy: Số lượng cặp punch = ${context.punches.length}`);
+    context.punches.forEach((p, i) => {
+        this.logger.log(`   -> Punch ${i+1}: In=${p.check_in_time?.toISOString()} | Out=${p.check_out_time?.toISOString()}`);
+    });
+
+    // 2. Late/Early
+    this.lateEarlyStrategy.process(context); 
+    this.logger.log(`[Debug] Sau LateEarly: Phạt muộn=${context.latePenalty}, Phạt về sớm=${context.earlyPenalty}, Phạt quên quẹt=${context.missPenalty}`);
+    this.logger.log(`[Debug] Tổng phút muộn=${context.totalLateMinutes}, Tổng phút về sớm=${context.totalEarlyMinutes}`);
+
+    // 3. Break Time (Khả năng cao lỗi ở đây)
+    this.logger.log(`[Debug] Trước BreakStrategy: Giờ thô dự kiến = ${this.calculateRawMinutes(context)} phút`);
+    this.breakStrategy.process(context); 
+    this.logger.log(`[Debug] Sau BreakStrategy: totalWorkedHours = ${context.totalWorkedHours} giờ (~${Math.round(context.totalWorkedHours * 60)} phút)`);
+
+    // 4. Các bước bổ sung
+    await this.overtimeStrategy.process(context);
+    await this.remoteStrategy.process(context);
+    
+    // 5. Tổng hợp
+    this.workdayStrategy.process(context);
+
+    this.logger.log(`[Debug] Kết quả cuối cùng: ActualWorkday = ${context.finalActualWorkday}`);
+    this.logger.log(`--- DEBUG END ---`);
+    
     return this.saveOrUpdateTimesheet(context);
-  }
+}
+
+// Hàm phụ để phục vụ log debug
+private calculateRawMinutes(context: CalculationContext): number {
+    let mins = 0;
+    context.punches.forEach(p => {
+        if (p.check_in_time && p.check_out_time) {
+            mins += (p.check_out_time.getTime() - p.check_in_time.getTime()) / (1000 * 60);
+        }
+    });
+    return mins;
+}
 
   /**
    * Lấy employee với relations đầy đủ

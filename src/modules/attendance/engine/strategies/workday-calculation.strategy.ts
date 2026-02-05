@@ -3,51 +3,40 @@ import { CalculationContext } from '../dto/calculation-context.dto';
 
 @Injectable()
 export class WorkdayCalculationStrategy {
-  /**
-   * Tổng hợp tất cả dữ liệu để tính actual_workday cuối cùng
-   */
   process(context: CalculationContext): void {
-    // Giờ chuẩn của ca (fallback 8h nếu không có shift)
     const standardHours = context.shiftContext?.getStandardWorkHours() || 8;
 
-    // 1. Công thực tế từ giờ làm việc hiệu quả (sau trừ break)
+    // 1. Tính công thô từ giờ làm việc hiệu quả
     let actualWorkday = context.totalWorkedHours / standardHours;
 
-    // 2. Trừ phạt từ LateEarlyStrategy
-    actualWorkday -= context.latePenalty || 0;
-    actualWorkday -= context.earlyPenalty || 0;
-    actualWorkday -= context.missPenalty || 0;
+    // 2. Trừ các khoản phạt
+    const totalPenalty = (context.latePenalty || 0) + 
+                         (context.earlyPenalty || 0) + 
+                         (context.missPenalty || 0);
+    
+    actualWorkday = actualWorkday - totalPenalty;
 
-    // 3. Cộng OT trả lương (chỉ overtimeMinutes, không cộng compensatory)
-    if (context.overtimeMinutes > 0) {
-      const otHours = context.overtimeMinutes / 60;
-      actualWorkday += otHours / standardHours; // Tỷ lệ cộng công
+    // 3. GIỚI HẠN CÔNG TỐI ĐA LÀ 1
+    // Nếu không có Tăng ca (OT) trả bằng công/lương, thì tối đa chỉ nhận 1.0 công
+    // Chúng ta tính toán phần công tăng ca riêng (nếu overtimeMinutes > 0)
+    const otWorkday = context.overtimeMinutes > 0 ? (context.overtimeMinutes / 60) / standardHours : 0;
+    
+    if (otWorkday > 0) {
+      // Nếu có OT: Công = (Tối đa 1 công ngày thường) + Công OT
+      actualWorkday = Math.min(actualWorkday - otWorkday, 1) + otWorkday;
+    } else {
+      // Không có OT: Chốt cứng không quá 1 công
+      actualWorkday = Math.min(actualWorkday, 1);
     }
 
-    // 4. Xử lý online / công tác (ưu tiên nếu có giá trị >0)
-    //   - Ví dụ: remote/online/công tác full ngày → ít nhất 1.0 công
+    // 4. Ưu tiên Remote/Công tác
     if (context.onlineValue > 0 || context.businessTripValue > 0) {
       actualWorkday = Math.max(actualWorkday, context.onlineValue + context.businessTripValue);
     }
 
-    // 5. Giới hạn giá trị hợp lý (không âm, max 2 ngày công ví dụ)
-    //    - Có thể chỉnh max thành 1.5 nếu OT max 50% ca
-    actualWorkday = Math.max(0, Math.min(actualWorkday, 2));
-
-    // Lưu kết quả cuối cùng
-    context.finalActualWorkday = actualWorkday;
-    context.finalTotalWorkday = 1; // Default 1 ngày công chuẩn
-    // Có thể điều chỉnh nếu ngày lễ, half day, nghỉ phép (sau này thêm)
-
-    // Optional: Map trực tiếp vào entity trước khi save (nên mở ra)
-    // if (context.dailyTimesheet) {
-    //   context.dailyTimesheet.actual_workday = actualWorkday;
-    //   context.dailyTimesheet.total_workday = context.finalTotalWorkday;
-    //   context.dailyTimesheet.online_value = context.onlineValue;
-    //   context.dailyTimesheet.business_trip_value = context.businessTripValue;
-    //   context.dailyTimesheet.leave_value = 0; // Vì đang bỏ qua leave
-    //   // Thêm late_hours, early_hours aggregate nếu cần
-    // }
+    // Đảm bảo không âm và gán kết quả
+    context.finalActualWorkday = Math.max(0, actualWorkday);
+    context.finalTotalWorkday = 1; 
   }
 }
 

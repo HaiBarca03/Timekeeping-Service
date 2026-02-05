@@ -27,7 +27,7 @@ import { HealthResolver } from './health.resolver';
     }),
   ],
   providers: [
-    Logger,
+    // Logger,
     HealthResolver
   ],
 })

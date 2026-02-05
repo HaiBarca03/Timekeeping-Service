@@ -17,72 +17,58 @@ export class PunchProcessingStrategy {
   ) {}
 
   async process(context: CalculationContext): Promise<void> {
-    const employeeId = context.employee.id;
-    const date = context.date;
+      const employeeId = context.employee.id;
+      const date = context.date;
 
-    // Xác định khoảng thời gian trong ngày (00:00 đến 23:59:59)
-    const startOfDay = new Date(date);
-    startOfDay.setHours(0, 0, 0, 0);
-    const endOfDay = new Date(date);
-    endOfDay.setHours(23, 59, 59, 999);
+      // 1. Mở rộng khoảng query: Từ 00:00 ngày hiện tại đến 04:00 sáng ngày hôm sau
+      // Điều này giúp "bắt" được các cú quẹt thẻ muộn hoặc lệch múi giờ như ID 11 trong ảnh
+      const startRange = new Date(date);
+      startRange.setHours(0, 0, 0, 0);
 
-    // Lấy tất cả punch records trong ngày
-    const rawPunches = await this.punchRecordRepo.find({
-      where: {
-        employee_id: employeeId,
-        punch_time: Between(startOfDay, endOfDay),
-      },
-      order: { punch_time: 'ASC' },
-    });
+      const endRange = new Date(date);
+      endRange.setDate(endRange.getDate() + 1); 
+      endRange.setHours(4, 0, 0, 0); // Lấy thêm 4 tiếng ngày hôm sau
 
-    // Nếu phương thức chấm công là NONE → không cần punch, coi như full day
-    const workMethod = context.employee.attendanceMethod?.methodName as WorkMethodCode;
-    if (workMethod === WorkMethodCode.NO_PUNCH_REQUIRED) {
-      context.punches = [this.createFullDayPunch(context)];
-      return;
-    }
+      const rawPunches = await this.punchRecordRepo.find({
+        where: {
+          employee_id: employeeId,
+          punch_time: Between(startRange, endRange),
+        },
+        order: { punch_time: 'ASC' },
+      });
 
-    // Xử lý ghép cặp (giả sử luân phiên: 1=in, 2=out, 3=in, ...)
-    const dailyPunches: AttendanceDailyPunch[] = [];
-    let pairIndex = 1;
+      console.log(`[PunchDebug] Tìm thấy ${rawPunches.length} bản ghi trong khoảng mở rộng`);
 
-    for (let i = 0; i < rawPunches.length; i += 2) {
-      const punchIn = rawPunches[i];
-      const punchOut = rawPunches[i + 1];
+      if (context.employee.attendanceMethod?.methodName === WorkMethodCode.NO_PUNCH_REQUIRED) {
+        context.punches = [this.createFullDayPunch(context)];
+        return;
+      }
 
-      const dailyPunch = new AttendanceDailyPunch();
-      dailyPunch.daily_timesheet_id = context.dailyTimesheet?.id || null;
-      dailyPunch.punch_index = pairIndex++;
-      dailyPunch.check_in_time = punchIn?.punch_time || null;
-      dailyPunch.check_out_time = punchOut?.punch_time || null;
+      if (rawPunches.length > 0) {
+        const dailyPunch = new AttendanceDailyPunch();
+        dailyPunch.punch_index = 1;
+        
+        // Bản ghi ID 10
+        dailyPunch.check_in_time = rawPunches[0].punch_time;
+        
+        // Nếu tìm thấy bản ghi ID 11 (dù nó ghi là 00:28 ngày hôm sau)
+        if (rawPunches.length >= 2) {
+          dailyPunch.check_out_time = rawPunches[rawPunches.length - 1].punch_time;
+          dailyPunch.miss_check_out = false;
+        } else {
+          dailyPunch.check_out_time = null;
+          dailyPunch.miss_check_out = true;
+        }
 
-      // Flag miss
-      dailyPunch.miss_check_in = !dailyPunch.check_in_time;
-      dailyPunch.miss_check_out = !dailyPunch.check_out_time;
-
-      // Lưu kết quả xử lý punch (check_in_result, check_out_result) nếu cần
-      dailyPunch.check_in_result = punchIn?.punch_result;
-      dailyPunch.check_out_result = punchOut?.punch_result;
-
-      dailyPunches.push(dailyPunch);
-    }
-
-    // Nếu số punch lẻ (chỉ có check-in cuối cùng) → miss check-out
-    if (rawPunches.length % 2 === 1) {
-      const lastPunch = dailyPunches[dailyPunches.length - 1];
-      lastPunch.miss_check_out = true;
-    }
-
-    context.punches = dailyPunches;
-
-    // Optional: nếu miss hoàn toàn → tạo punch giả với miss flag
-    if (dailyPunches.length === 0) {
-      const missPunch = new AttendanceDailyPunch();
-      missPunch.punch_index = 1;
-      missPunch.miss_check_in = true;
-      missPunch.miss_check_out = true;
-      context.punches = [missPunch];
-    }
+        dailyPunch.miss_check_in = false;
+        context.punches = [dailyPunch];
+      } else {
+        const missPunch = new AttendanceDailyPunch();
+        missPunch.punch_index = 1;
+        missPunch.miss_check_in = true;
+        missPunch.miss_check_out = true;
+        context.punches = [missPunch];
+      }
   }
 
   private createFullDayPunch(context: CalculationContext): AttendanceDailyPunch {

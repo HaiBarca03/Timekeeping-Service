@@ -77,7 +77,7 @@ export class AttendanceDailyTimesheet extends BaseEntity {
   punchRecord: AttendancePunchRecord;
 
 
-    @Field(() => [LeaveRequestItem], { nullable: 'itemsAndList' }) 
+  @Field(() => [LeaveRequestItem], { nullable: 'itemsAndList' }) 
   @OneToMany(() => LeaveRequestItem, item => item.dailyTimesheet)
   leaveRequestItems: LeaveRequestItem[];
 }

@@ -3,5 +3,5 @@ export const QUEUE_NAMES = {
 };
 
 export const JOB_NAMES = {
-  CALCULATE: 'calculate_attendance_job',
+  CALCULATE_DAILY: 'calculate-daily-attendance',
 };
