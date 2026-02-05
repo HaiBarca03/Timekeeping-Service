@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Between } from 'typeorm';
 import { OvertimeRequest } from 'src/modules/leave-management/entities/overtime-request.entity';
@@ -8,6 +8,7 @@ import { differenceInMinutes } from 'date-fns';
 
 @Injectable()
 export class OvertimeStrategy {
+  private readonly logger = new Logger(OvertimeStrategy.name);
   constructor(
     @InjectRepository(OvertimeRequest)
     private overtimeRepo: Repository<OvertimeRequest>,
@@ -17,58 +18,64 @@ export class OvertimeStrategy {
    * Xử lý OT request cho ngày và cập nhật context
    */
   async process(context: CalculationContext): Promise<void> {
-    const employeeId = context.employee.id;
-    const date = context.date;
+      const { id: employeeId } = context.employee;
+      const { date } = context;
 
-    // Xác định khoảng thời gian trong ngày (00:00 → 23:59:59)
-    const startOfDay = new Date(date);
-    startOfDay.setHours(0, 0, 0, 0);
-    const endOfDay = new Date(date);
-    endOfDay.setHours(23, 59, 59, 999);
+      // 1. Kiểm tra khoảng thời gian Query
+      const startOfDay = new Date(date);
+      startOfDay.setHours(0, 0, 0, 0);
+      const endOfDay = new Date(date);
+      endOfDay.setHours(23, 59, 59, 999);
 
-    // Query OT request approved trong ngày
-    const otRequests = await this.overtimeRepo.find({
-      where: {
-        requester_id: employeeId,
-        status: 'approved',
-        start_time: Between(startOfDay, endOfDay),
-      },
-      relations: ['conversion_type'],
-    });
-
-    let totalPaidOtMinutes = 0;
-
-    // Duyệt từng OT request
-    for (const request of otRequests) {
-      // Tính thời gian OT thô (phút)
-      const otDurationMinutes = differenceInMinutes(
-        request.end_time,
-        request.start_time,
+      this.logger.debug(
+        `Query OT cho NV ${employeeId} từ ${startOfDay.toISOString()} đến ${endOfDay.toISOString()}`
       );
 
-      // Áp dụng hệ số nhân từ conversion_type
-      const multiplier = request.conversion_type?.multiplier || 1.0;
-      const effectiveOtMinutes = otDurationMinutes * multiplier;
+      const otRequests = await this.overtimeRepo.find({
+        where: {
+          requester_id: employeeId,
+          status: 'approved',
+          start_time: Between(startOfDay, endOfDay),
+        },
+        relations: ['conversion_type'],
+      });
 
-      // Phân loại theo conversion code
-      const conversionCode =
-        request.conversion_type?.conversionName as OvertimeConversionCode;
+      // 2. Kiểm tra số lượng phiếu tìm thấy
+      this.logger.log(`Tìm thấy ${otRequests.length} phiếu OT cho ngày ${date}`);
 
-      if (conversionCode === OvertimeConversionCode.COMPENSATORY_LEAVE) {
-        // OT chuyển sang phép bù → cộng vào quỹ phép (không ảnh hưởng công ngày)
-        context.overtimeCompensatoryMinutes =
-          (context.overtimeCompensatoryMinutes || 0) + effectiveOtMinutes;
-      } else {
-        // OT trả lương → cộng vào overtimeMinutes để tính công sau
-        totalPaidOtMinutes += effectiveOtMinutes;
+      let totalPaidOtMinutes = 0;
+      let totalCompensatoryMinutes = 0;
+
+      for (const request of otRequests) {
+        // 3. Kiểm tra tính toán từng phiếu
+        const otDurationMinutes = differenceInMinutes(
+          new Date(request.end_time),
+          new Date(request.start_time),
+        );
+
+        const multiplier = parseFloat(request.conversion_type?.multiplier as any) || 1.0;
+        const effectiveOtMinutes = otDurationMinutes * multiplier;
+
+        this.logger.debug(
+          `Phiếu ID ${request.id}: Gốc ${otDurationMinutes}p, Hệ số ${multiplier}, Sau quy đổi ${effectiveOtMinutes}p (${request.conversion_type?.conversionName})`
+        );
+
+        if (request.conversion_type?.conversionName === OvertimeConversionCode.COMPENSATORY_LEAVE) {
+          totalCompensatoryMinutes += effectiveOtMinutes;
+        } else {
+          totalPaidOtMinutes += effectiveOtMinutes;
+        }
       }
-    }
 
-    // Lưu tổng OT trả lương vào context
-    context.overtimeMinutes = totalPaidOtMinutes;
+      // 4. Kiểm tra giá trị cuối cùng ghi vào Context
+      context.overtimeMinutes = (context.overtimeMinutes || 0) + totalPaidOtMinutes;
+      context.overtimeCompensatoryMinutes = (context.overtimeCompensatoryMinutes || 0) + totalCompensatoryMinutes;
+      
+      this.logger.log(
+        `Kết quả ngày ${date}: PaidOT=${context.overtimeMinutes}, CompOT=${context.overtimeCompensatoryMinutes}`
+      );
   }
 }
-
 /**
  * OvertimeStrategy
  * 

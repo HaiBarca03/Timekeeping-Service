@@ -22,13 +22,11 @@ export class RemoteWorkStrategy {
     const employeeId = context.employee.id;
     const date = context.date;
 
-    // Khoảng thời gian trong ngày
     const startOfDay = new Date(date);
     startOfDay.setHours(0, 0, 0, 0);
     const endOfDay = new Date(date);
     endOfDay.setHours(23, 59, 59, 999);
 
-    // Query request approved trong ngày
     const requests = await this.workLocationRepo.find({
       where: {
         requester_id: employeeId,
@@ -38,52 +36,54 @@ export class RemoteWorkStrategy {
       relations: ['request_type', 'items'],
     });
 
+    if (!requests.length) return;
+
     let onlineValue = 0;
     let businessTripValue = 0;
     let isRemoteOrOnline = false;
 
-    // Duyệt từng request
     for (const request of requests) {
       const typeCode = request.request_type?.typeName as RemoteRequestTypeCode;
 
+      // Tìm weight (trọng số công) từ items của phiếu ngày hôm nay
+      // Nếu bạn thêm cột 'value' (0.5 hoặc 1) vào WorkLocationRequestItem thì lấy ở đây
+      const currentItem = request.items?.find(
+        (item) => item.daily_timesheet_id === context.dailyTimesheet?.id
+      );
+      
+      // Mặc định là 1.0 nếu không tìm thấy item cụ thể hoặc item không có value
+      const weight = (currentItem as any)?.value || 1.0;
+
       switch (typeCode) {
-        case RemoteRequestTypeCode.WORK_FROM_HOME:      // Làm việc tại nhà (online)
-        case RemoteRequestTypeCode.OUTSIDE_WORK:        // Ra ngoài làm việc
-          onlineValue += 1.0; // Full ngày online/remote
+        case RemoteRequestTypeCode.WORK_FROM_HOME:
+        case RemoteRequestTypeCode.OUTSIDE_WORK:
+          onlineValue += weight;
           isRemoteOrOnline = true;
           break;
 
-        case RemoteRequestTypeCode.BUSINESS_TRIP:       // Công tác
-          businessTripValue += 1.0; // Full ngày công tác
-          isRemoteOrOnline = true; // Có thể coi công tác tương tự remote về miss punch
+        case RemoteRequestTypeCode.BUSINESS_TRIP:
+          businessTripValue += weight;
+          isRemoteOrOnline = true;
           break;
-      }
-
-      // Nếu request có items liên kết cụ thể với daily timesheet
-      // (ví dụ: request chỉ áp dụng cho 1/2 ngày)
-      if (request.items?.length) {
-        for (const item of request.items) {
-          if (item.daily_timesheet_id === context.dailyTimesheet?.id) {
-            // Có thể override giá trị chi tiết hơn ở đây
-            // Ví dụ: item.value = 0.5 → onlineValue = 0.5 (nếu sau này hỗ trợ half-day remote)
-          }
-        }
       }
     }
 
-    // Lưu giá trị vào context (sẽ dùng ở WorkdayCalculationStrategy)
-    context.onlineValue = onlineValue;
-    context.businessTripValue = businessTripValue;
+    // Cập nhật context (Dùng += để tránh ghi đè nếu có strategy khác chạy trước)
+    context.onlineValue = (context.onlineValue || 0) + onlineValue;
+    context.businessTripValue = (context.businessTripValue || 0) + businessTripValue;
 
-    // Nếu có request remote/online/công tác → ưu tiên xử lý miss punch
     if (isRemoteOrOnline) {
-      // Bỏ phạt miss check-in/out (vì làm remote không cần chấm công vật lý)
+      // 1. Miễn trừ phạt quên quẹt (Miss Punch)
       context.missPenalty = 0;
 
-      // Nếu toàn bộ miss punch (không có punch nào) → set giờ làm mặc định full ca
-      // để tính công bình thường (thay vì 0)
-      if (context.punches.every(p => p.miss_check_in && p.miss_check_out)) {
-        context.totalWorkedHours = context.shiftContext?.getStandardWorkHours() || 8;
+      // 2. Xử lý giờ làm nếu không có punch thực tế
+      // Dùng check: Nếu không có bất kỳ lần quẹt thẻ hợp lệ nào
+      const noValidPunches = context.punches.every(p => p.miss_check_in && p.miss_check_out);
+      
+      if (noValidPunches) {
+        const standardHours = context.shiftContext?.getStandardWorkHours() || 8;
+        // Giờ làm = Giờ chuẩn * tổng trọng số (ví dụ 8h * 0.5 = 4h)
+        context.totalWorkedHours = standardHours * (onlineValue + businessTripValue);
       }
     }
   }
