@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { BullModule } from '@nestjs/bullmq';
 import { DatabaseModule } from '../../database/database.module';
 import { QUEUE_NAMES } from '../../constants/queue.constants';
@@ -10,6 +10,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { MasterDataModule } from '../master-data/master-data.module';
 import { AttendanceModule } from '../attendance/attendance.module';
 import { AttendanceProcessor } from './processor/attendance.processor';
+import { CalculateDailyProcessor } from './processor/calculate-daily.processor';
 
 @Module({
   imports: [
@@ -19,13 +20,15 @@ import { AttendanceProcessor } from './processor/attendance.processor';
     DatabaseModule,    
     MasterDataModule,      // Company
     AttendanceModule,   
-    AttendanceEngineModule,
     TypeOrmModule.forFeature([AttendancePunchRecord]),  
     RedisModule,   
     BullModule.registerQueue({
       name: QUEUE_NAMES.ATTENDANCE,
     }),
+    BullModule.registerQueue({
+      name: QUEUE_NAMES.CALCULATE_DAILY,
+    }),
   ],
-  providers: [AttendanceProcessor],
+  providers: [AttendanceProcessor, CalculateDailyProcessor],
 })
 export class WorkerModule {}

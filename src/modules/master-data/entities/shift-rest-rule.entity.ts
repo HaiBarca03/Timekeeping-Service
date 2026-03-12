@@ -13,7 +13,7 @@ export class ShiftRestRule extends BaseEntity {
 
   @Field({ nullable: true })
   @Column({ name: 'rest_begin_time', type: 'time', nullable: true })
-  restBeginTime: string; // Kiểu 'time' trong Postgres trả về string "HH:mm:ss"
+  restBeginTime: string;
 
   @Field({ nullable: true })
   @Column({ name: 'rest_end_time', type: 'time', nullable: true })

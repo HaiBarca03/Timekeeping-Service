@@ -23,7 +23,8 @@ export class CalculationContext {
   overtimeCompensatoryMinutes: number = 0;
   onlineValue: number = 0;
   businessTripValue: number = 0;
-
+  leaveHours: number = 0;
+  leaveValue: number = 0;
   finalActualWorkday: number = 0;
   finalTotalWorkday: number = 1;    // default 1 ngày
 

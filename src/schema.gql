@@ -3,32 +3,53 @@
 # ------------------------------------------------------
 
 type AttendanceDailyTimesheet {
-  actual_workday: Float!
+  actual_work_hours: Float!
+  adjustment_hours: Float!
   attendance_date: DateTime!
-  business_trip_value: Float!
+  attendance_status: String!
+  calculated_at: DateTime
+  check_in_actual: DateTime
+  check_in_raw: DateTime
+  check_out_actual: DateTime
+  check_out_raw: DateTime
   company: Company!
   company_id: ID!
+  early_leave_minutes: Int!
   employee: Employee!
   employee_id: ID!
+  is_early_leave: Boolean!
+  is_late: Boolean!
+  is_leave: Boolean!
+  is_ot: Boolean!
+  is_recalculated: Boolean!
+  is_remote: Boolean!
+  late_minutes: Int!
   leaveRequestItems: [LeaveRequestItem]
-  leave_value: Float!
+  leave_hours: Float!
+  missing_check_in: Boolean!
+  missing_check_out: Boolean!
   month: Float!
-  online_value: Float!
-  punchRecord: AttendancePunchRecord!
-  total_workday: Float!
-  unpaid_leave_value: Float!
+  ot_hours: Float!
+  remote_hours: Float!
+  rest_minutes: Int!
+  total_work_hours_standard: Float!
+  weekday: Int!
+  work_minutes: Int!
   year: Float!
 }
 
 type AttendanceGroup {
+  code: String!
   company: Company
   companyId: ID!
   defaultShift: Shift
   defaultShiftId: ID
   groupName: String!
+  status: String!
 }
 
 type AttendanceMethod {
+  code: String!
   company: Company
   companyId: ID!
   methodName: String!
@@ -44,17 +65,25 @@ type AttendanceMonthSetting {
 }
 
 type AttendanceMonthlyTimesheet {
-  actual_workday_days: Float!
   company: Company!
   company_id: ID!
   confirmation_status: String
   employee: Employee!
   employee_id: ID!
-  late_count: Float!
-  month: Float!
-  total_late_minutes: Float!
-  total_overtime_minutes: Float!
-  year: Float!
+  month: Int!
+  total_adjustment_hours: Float!
+  total_early_leave_minutes: Int!
+  total_late_days: Int!
+  total_late_minutes: Int!
+  total_leave_days: Float!
+  total_leave_hours: Float!
+  total_missing_check: Int!
+  total_ot_hours: Float!
+  total_remote_days: Float!
+  total_standard_hours: Float!
+  total_work_days: Float!
+  total_work_hours: Float!
+  year: Int!
 }
 
 type AttendancePunchRecord {
@@ -63,16 +92,20 @@ type AttendancePunchRecord {
   company_id: ID!
   dailyTimesheet: AttendanceDailyTimesheet!
   daily_timesheet_id: String
+  device_id: String
   employee: Employee!
   employee_id: ID!
   lark_record_id: String!
   latitude: Float
   longitude: Float
+  photo_url: String
   punch_result: String
   punch_time: DateTime!
   punch_type: String
   raw_payload: JSON
+  shift_time_target: DateTime
   source_type: String
+  ssid: String
 }
 
 type BatchPunchResult {
@@ -96,37 +129,66 @@ A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date
 """
 scalar DateTime
 
+type Department {
+  children: [Department]
+  company: Company!
+  companyId: ID!
+  departmentCode: String
+  departmentName: String!
+  employees: [Employee]
+  parent: Department
+  parentId: ID
+  status: String!
+}
+
 type Employee {
   attendanceGroup: AttendanceGroup
   attendanceMethod: AttendanceMethod
   attendanceMonthlyTimesheets: [AttendanceMonthlyTimesheet]
   attendancePunchRecords: [AttendancePunchRecord]
   attendanceTimesheets: [AttendanceDailyTimesheet]
+  birthday: String
   company: Company!
   companyId: ID!
+  departments: [Department]
   email: String
-  employeeCode: String!
   employeeStatus: EmployeeStatus
   employeeType: EmployeeType
   fullName: String!
+  gender: String
+  is_angel: Boolean!
+  is_saturday_off: Boolean!
   jobLevel: JobLevel
-  larkAccount: String
+  joinedAt: String
+  larkId: String
   leavePolicy: LeavePolicy
   leaveRequests: [LeaveRequest]
   manager: Employee
   managerId: ID
   phoneNumber: String
+  resignedAt: String
   standardWorkdays: Float
   subordinates: [Employee]
+  userId: String!
+  userName: String!
+  workLocation: WorkLocation
+  workLocationId: ID!
+}
+
+type EmployeePaginated {
+  items: [Employee]
+  meta: PaginationInfo!
 }
 
 type EmployeeStatus {
+  code: String!
   company: Company
   companyId: ID!
   statusName: String!
 }
 
 type EmployeeType {
+  code: String!
   company: Company
   companyId: ID!
   typeName: String!
@@ -138,9 +200,11 @@ The `JSON` scalar type represents JSON values as specified by [ECMA-404](http://
 scalar JSON
 
 type JobLevel {
+  code: String!
   company: Company
   companyId: ID!
   levelName: String!
+  status: String!
 }
 
 type LeavePolicy {
@@ -195,7 +259,7 @@ type LeaveType {
 }
 
 type Mutation {
-  receiveBatchPunch(inputs: [RawPunchInput!]!): BatchPunchResult!
+  receiveLarkBatchPunch(companyId: String!, larkData: JSON!): BatchPunchResult!
 }
 
 type OvertimeConversionType {
@@ -205,58 +269,36 @@ type OvertimeConversionType {
   multiplier: Float!
 }
 
+type PaginationInfo {
+  currentPage: Int!
+  itemCount: Int!
+  itemsPerPage: Int!
+  totalItems: Int!
+  totalPages: Int!
+}
+
 type Query {
+  employee(id: ID!): Employee
+  employees(companyId: ID!, limit: Int! = 10, page: Int! = 1): EmployeePaginated!
   health: String!
 }
 
-input RawPunchInput {
-  address: String
-  company_id: String!
-  employee_id: String!
-  lark_record_id: String!
-  latitude: Float
-  longitude: Float
-  punch_result: String
-  punch_time: DateTime!
-  punch_type: String
-  raw_payload: JSON
-  source_type: String
-}
-
 type Shift {
+  allowEarlyMinutes: Float!
+  allowLateMinutes: Float!
+  code: String!
   company: Company
   companyId: ID!
-  fields: [ShiftField]
+  endTime: DateTime!
   restRules: [ShiftRestRule]
-  rule: ShiftRule
+  shiftHours: Float!
   shiftName: String!
-}
-
-type ShiftField {
-  fieldName: String
-  isFlexible: Boolean!
-  noNeedOff: Boolean!
-  punchTimeNumber: Int
-  shift: Shift
-  shiftId: ID!
+  startTime: DateTime!
 }
 
 type ShiftRestRule {
   restBeginTime: String
   restEndTime: String
-  shift: Shift
-  shiftId: ID!
-}
-
-type ShiftRule {
-  earlyMinutesAsEarly: Int
-  earlyMinutesAsLack: Int
-  lateMinutesAsLack: Int
-  lateMinutesAsLate: Int
-  offDelayMinutes: Int
-  offTime: String
-  onAdvanceMinutes: Int
-  onTime: String
   shift: Shift
   shiftId: ID!
 }
@@ -287,6 +329,16 @@ type TimesheetAdjustmentType {
   adjustmentTypeName: String!
   company: Company
   companyId: ID!
+}
+
+type WorkLocation {
+  address: String
+  company: Company!
+  companyId: ID!
+  latitude: Float
+  locationName: String!
+  longitude: Float
+  radiusMeters: Float
 }
 
 type WorkLocationRequest {

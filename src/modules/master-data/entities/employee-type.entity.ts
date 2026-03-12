@@ -5,11 +5,16 @@ import { Field, ID, ObjectType } from '@nestjs/graphql';
 
 @ObjectType()
 @Entity('employee_types')
-@Index(['companyId', 'typeName'], { unique: true })
+@Index(['companyId', 'code'], { unique: true }) 
 export class EmployeeType extends BaseEntity {
   @Field(() => ID)
   @Column({ name: 'company_id', type: 'bigint' })
   companyId: string;
+
+  @Field()
+  @Column({ name: 'code', type: 'varchar', length: 50 })
+  @Index() 
+  code: string; 
 
   @Field()
   @Column({ name: 'type_name', type: 'varchar' })

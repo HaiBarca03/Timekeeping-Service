@@ -18,6 +18,7 @@
     "migration:run": "typeorm-ts-node-commonjs -d src/database/data-source.ts migration:run",
     "migration:revert": "typeorm-ts-node-commonjs -d src/database/data-source.ts migration:revert",
     "seed:run": "ts-node -r tsconfig-paths/register src/database/seeds/run-seed.ts",
+    "seed-v2:run": "ts-node -r tsconfig-paths/register seed.ts",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
     "test": "jest",
     "test:watch": "jest --watch",
@@ -28,6 +29,7 @@
   "dependencies": {
     "@apollo/server": "^5.3.0",
     "@as-integrations/express5": "^1.1.2",
+    "@faker-js/faker": "^10.3.0",
     "@nestjs/apollo": "^13.2.3",
     "@nestjs/bullmq": "^11.0.4",
     "@nestjs/common": "^11.0.1",
@@ -35,6 +37,7 @@
     "@nestjs/core": "^11.0.1",
     "@nestjs/graphql": "^13.2.3",
     "@nestjs/platform-express": "^11.0.1",
+    "@nestjs/swagger": "^11.2.6",
     "@nestjs/typeorm": "^11.0.0",
     "apollo-server-express": "^3.13.0",
     "bullmq": "^5.66.7",
@@ -47,6 +50,7 @@
     "pg": "^8.17.2",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
+    "swagger-ui-express": "^5.0.1",
     "typeorm": "^0.3.28"
   },
   "devDependencies": {

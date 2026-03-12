@@ -1,37 +1,79 @@
-import { ShiftField } from "src/modules/master-data/entities/shift-field.entity";
 import { ShiftRestRule } from "src/modules/master-data/entities/shift-rest-rule.entity";
-import { ShiftRule } from "src/modules/master-data/entities/shift-rule.entity";
 import { Shift } from "src/modules/master-data/entities/shift.entity";
+import { ShiftAssignment } from "../../entities/shift-assignment.entity";
 
 export class ShiftContext {
-  shift: Shift;
-  rule: ShiftRule;
-  restRules: ShiftRestRule[];
-  fields: ShiftField[];
+  shift?: Shift;
 
-  constructor(shift: Shift) {
-    this.shift = shift;
-    this.rule = shift.rule;
-    this.restRules = shift.restRules || [];
-    this.fields = shift.fields || [];
+  restRules: ShiftRestRule[] = [];
+
+  assignments: ShiftAssignment[] = [];
+
+  constructor(shift?: Shift, assignments?: ShiftAssignment[]) {
+
+    if (shift) {
+      this.shift = shift;
+      this.restRules = shift.restRules || [];
+    }
+
+    if (assignments && assignments.length > 0) {
+      this.assignments = assignments;
+
+      if (!shift) {
+        const s = assignments[0].shift;
+        this.shift = s;
+        this.restRules = s?.restRules || [];
+      }
+    }
+
+  }
+
+  get rule() {
+
+    // STORE SHIFT
+    if (this.assignments.length > 0) {
+      const a = this.assignments[0];
+
+      return {
+        onTime: a.onTime,
+        offTime: a.offTime,
+        allowLateMinutes: a.shift?.allowLateMinutes ?? 0,
+        allowEarlyMinutes: a.shift?.allowEarlyMinutes ?? 0
+      };
+    }
+
+    // OFFICE SHIFT
+    if (this.shift) {
+      return {
+        onTime: this.shift.startTime,
+        offTime: this.shift.endTime,
+        allowLateMinutes: this.shift.allowLateMinutes,
+        allowEarlyMinutes: this.shift.allowEarlyMinutes
+      };
+    }
+
+    return null;
   }
 
   getStandardWorkHours(): number {
-    if (!this.rule.onTime || !this.rule.offTime) return 8; // fallback
-
-    const on = this.rule.onTime.split(':').map(Number);
-    const off = this.rule.offTime.split(':').map(Number);
-    let hours = off[0] - on[0] + (off[1] - on[1]) / 60;
-
-    // Trừ break time (sẽ chi tiết hơn ở break strategy)
-    return hours - this.getTotalBreakHours();
+    return this.shift?.shiftHours ?? 8;
   }
 
-  private getTotalBreakHours(): number {
-    return this.restRules.reduce((sum, rest) => {
-      const begin = rest.restBeginTime?.split(':').map(Number) || [0, 0];
-      const end = rest.restEndTime?.split(':').map(Number) || [0, 0];
-      return sum + (end[0] - begin[0] + (end[1] - begin[1]) / 60);
-    }, 0);
+  isRestTime(time: string): boolean {
+    const current = this.toMinutes(time);
+
+    return this.restRules.some(rest => {
+      if (!rest.restBeginTime || !rest.restEndTime) return false;
+
+      const begin = this.toMinutes(rest.restBeginTime);
+      const end = this.toMinutes(rest.restEndTime);
+
+      return current >= begin && current <= end;
+    });
+  }
+
+  private toMinutes(time: string): number {
+    const [h, m] = time.split(':').map(Number);
+    return h * 60 + m;
   }
 }

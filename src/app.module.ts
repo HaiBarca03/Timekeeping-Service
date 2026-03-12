@@ -24,6 +24,15 @@ import { HealthResolver } from './health.resolver';
       driver: ApolloDriver,
       autoSchemaFile: join(process.cwd(), 'src/schema.gql'),
       sortSchema: true,
+      formatError: (error) => {
+        const originalError = error.extensions?.originalError as any;
+        return {
+          message: error.message,
+          businessCode: originalError?.businessCode || -1,
+          code: error.extensions?.code,
+          path: error.path,
+        };
+      },
     }),
   ],
   providers: [

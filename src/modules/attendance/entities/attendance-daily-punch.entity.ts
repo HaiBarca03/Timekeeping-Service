@@ -48,6 +48,12 @@ export class AttendanceDailyPunch extends BaseEntity {
   @Column({ default: false })
   miss_check_out: boolean;
 
+  @Column({ type: 'timestamp', nullable: true })
+  check_in_actual: Date | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  check_out_actual: Date | null;
+
   @Field(() => AttendanceDailyTimesheet)
   @ManyToOne(() => AttendanceDailyTimesheet, ts => ts.punches)
   @JoinColumn({ name: 'daily_timesheet_id' })

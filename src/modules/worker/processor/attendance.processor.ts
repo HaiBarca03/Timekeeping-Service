@@ -19,9 +19,9 @@ export class AttendanceProcessor extends WorkerHost {
       case JOB_NAMES.CALCULATE_DAILY: {
         const { employee_id, date } = job.data;
 
-        // this.logger.log(
-        //   `Processing employee=${employee_id}, date=${date}`,
-        // );
+        this.logger.log(
+          `Processing employee=${employee_id}, date=${date}`,
+        );
 
         await this.attendanceEngine.calculateDailyForEmployee(
           employee_id,

@@ -54,6 +54,22 @@ export class AttendancePunchRecord extends BaseEntity {
   @Column({ nullable: true })
   address: string;
 
+  @Field({ nullable: true })
+  @Column({ nullable: true })
+  device_id: string; // Thêm để đối soát thiết bị
+
+  @Field({ nullable: true })
+  @Column({ nullable: true })
+  ssid: string; // Thêm để kiểm tra Wi-Fi
+
+  @Field({ nullable: true })
+  @Column({ type: 'text', nullable: true })
+  photo_url: string; // Lưu link ảnh từ Lark
+
+  @Field({ nullable: true })
+  @Column({ type: 'timestamp', nullable: true })
+  shift_time_target: Date; // Giờ chuẩn của ca mà Lark quy định
+
   @Field(() => GraphQLJSON, { nullable: true })
   @Column({ type: 'jsonb', nullable: true })
   raw_payload: any;
@@ -70,7 +86,7 @@ export class AttendancePunchRecord extends BaseEntity {
   employee: Employee;
 
   @Field(() => AttendanceDailyTimesheet)
-  @ManyToOne(() => AttendanceDailyTimesheet , dailyTimesheet => dailyTimesheet.punchRecord)
+  @ManyToOne(() => AttendanceDailyTimesheet , dailyTimesheet => dailyTimesheet.punches)
   @JoinColumn({ name: 'daily_timesheet_id' })
   dailyTimesheet: AttendanceDailyTimesheet;
 }

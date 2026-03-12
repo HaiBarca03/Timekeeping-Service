@@ -10,7 +10,7 @@ export interface LateEarlyRule {
   earlyPenalties: { threshold: number; penalty: number }[];
   missCheckInPenalty: number;
   missCheckOutPenalty: number;
-  ignoreForTypes?: EmployeeTypeCode[]; // ví dụ TTS, CTV không phạt
+  ignoreForTypes?: EmployeeTypeCode[]; 
 }
 
 @Injectable()
@@ -21,11 +21,10 @@ export class RuleFactoryService {
     employeeType: string | undefined,
   ): LateEarlyRule {
     const defaultRule: LateEarlyRule = {
-      allowedLateMinutes: 10,
+      allowedLateMinutes: 1,
       allowedEarlyMinutes: 10,
       latePenalties: [
-        { threshold: 15, penalty: 0.25 },
-        { threshold: 60, penalty: 0.5 },
+        { threshold: 1, penalty: 1.0 }, // trễ >1p mất 1 công
       ],
       earlyPenalties: [
         { threshold: 30, penalty: 0.25 },
