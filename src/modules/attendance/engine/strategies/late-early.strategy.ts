@@ -11,192 +11,106 @@ export class LateEarlyStrategy {
   constructor(private ruleFactory: RuleFactoryService) {}
 
   process(context: CalculationContext): void {
+      this.logger.log('========== START LateEarlyStrategy ==========');
 
-    this.logger.log('========== START LateEarlyStrategy ==========');
-
-    if (!context.shiftContext?.rule) {
-      this.logger.warn('No shift rule found → skip LateEarlyStrategy');
-      return;
-    }
-
-    const rule = this.ruleFactory.getLateEarlyRule(
-      context.companyName,
-      context.attendanceGroupName,
-      context.employee.employeeType?.typeName,
-    );
-
-    this.logger.debug(`Company: ${context.companyName}`);
-    this.logger.debug(`Attendance Group: ${context.attendanceGroupName}`);
-    this.logger.debug(`Employee Type: ${context.employee.employeeType?.typeName}`);
-    this.logger.debug(`Rule: ${JSON.stringify(rule)}`);
-
-    const shiftStart = context.shiftContext.rule.onTime;
-    const shiftEnd = context.shiftContext.rule.offTime;
-
-    this.logger.debug(`Shift Start: ${shiftStart}`);
-    this.logger.debug(`Shift End: ${shiftEnd}`);
-
-    let totalLate = 0;
-    let totalEarly = 0;
-    let missPenalty = 0;
-
-    for (const punch of context.punches) {
-
-      this.logger.log('----- Processing Punch -----');
-      this.logger.debug(JSON.stringify(punch));
-
-      // =========================
-      // LATE
-      // =========================
-      if (punch.check_in_time) {
-
-        this.logger.debug(`Check-in time: ${punch.check_in_time}`);
-
-        const lateMin = Math.max(
-          0,
-          differenceInMinutes(punch.check_in_time, shiftStart),
-        );
-
-        this.logger.debug(`Raw Late Minutes: ${lateMin}`);
-
-        let finalLate = lateMin;
-
-        if (lateMin <= rule.allowedLateMinutes) {
-          this.logger.debug(
-            `Late (${lateMin}) <= allowed (${rule.allowedLateMinutes}) → ignore`,
-          );
-          finalLate = 0;
-        }
-
-        if (this.hasLeaveStart(context, shiftStart)) {
-          this.logger.debug('Leave at shift start → ignore late');
-          finalLate = 0;
-        }
-
-        if (this.hasRemoteStart(context, shiftStart)) {
-          this.logger.debug('Remote at shift start → ignore late');
-          finalLate = 0;
-        }
-
-        punch.late_hours = finalLate / 60;
-
-        this.logger.debug(`Final Late Minutes: ${finalLate}`);
-        this.logger.debug(`Late Hours stored: ${punch.late_hours}`);
-
-        totalLate += finalLate;
-
-        if (finalLate > 0) {
-
-          const penalty = this.calculatePenalty(finalLate, rule.latePenalties);
-
-          this.logger.debug(
-            `Late Penalty applied: ${penalty} (minutes=${finalLate})`,
-          );
-
-          context.latePenalty += penalty;
-        }
-
-      } else {
-
-        this.logger.debug('No check-in detected');
-
-        if (
-          !this.hasLeaveStart(context, shiftStart) &&
-          !this.hasRemoteStart(context, shiftStart)
-        ) {
-
-          this.logger.debug(
-            `Miss check-in → penalty ${rule.missCheckInPenalty}`,
-          );
-
-          punch.miss_check_in = true;
-          missPenalty += rule.missCheckInPenalty;
-        }
-
+      if (!context.shiftContext?.rule) {
+        this.logger.warn('No shift rule found → skip LateEarlyStrategy');
+        return;
       }
 
-      // =========================
-      // EARLY
-      // =========================
-      if (punch.check_out_time) {
-
-        this.logger.debug(`Check-out time: ${punch.check_out_time}`);
-
-        const earlyMin = Math.max(
-          0,
-          differenceInMinutes(shiftEnd, punch.check_out_time),
-        );
-
-        this.logger.debug(`Raw Early Minutes: ${earlyMin}`);
-
-        let finalEarly = earlyMin;
-
-        if (this.hasLeaveEnd(context, shiftEnd)) {
-          this.logger.debug('Leave at shift end → ignore early');
-          finalEarly = 0;
-        }
-
-        if (this.hasRemoteEnd(context, shiftEnd)) {
-          this.logger.debug('Remote at shift end → ignore early');
-          finalEarly = 0;
-        }
-
-        punch.early_hours = finalEarly / 60;
-
-        this.logger.debug(`Final Early Minutes: ${finalEarly}`);
-        this.logger.debug(`Early Hours stored: ${punch.early_hours}`);
-
-        totalEarly += finalEarly;
-
-        if (finalEarly > rule.allowedEarlyMinutes) {
-
-          const penalty = this.calculatePenalty(
-            finalEarly,
-            rule.earlyPenalties,
-          );
-
-          this.logger.debug(
-            `Early Penalty applied: ${penalty} (minutes=${finalEarly})`,
-          );
-
-          context.earlyPenalty += penalty;
-        }
-
-      } else if (punch.check_in_time) {
-
-        this.logger.debug('No check-out detected');
-
-        if (
-          !this.hasLeaveEnd(context, shiftEnd) &&
-          !this.hasRemoteEnd(context, shiftEnd)
-        ) {
-
-          this.logger.debug(
-            `Miss check-out → penalty ${rule.missCheckOutPenalty}`,
-          );
-
-          punch.miss_check_out = true;
-          missPenalty += rule.missCheckOutPenalty;
-        }
-
-      }
-
-      
-      this.logger.debug(
-        `Punch Result → late_hours=${punch.late_hours}, early_hours=${punch.early_hours}`,
+      const rule = this.ruleFactory.getLateEarlyRule(
+        context.companyName,
+        context.attendanceGroupName,
+        context.employee.employeeType?.typeName,
       );
 
-    }
+      const shiftStart = context.shiftContext.rule.onTime;
+      const shiftEnd = context.shiftContext.rule.offTime;
 
-    context.totalLateMinutes = totalLate;
-    context.totalEarlyMinutes = totalEarly;
-    context.missPenalty += missPenalty;
+      let totalLate = 0;
+      let totalEarly = 0;
+      let missPenalty = 0;
 
-    this.logger.log('========== END LateEarlyStrategy ==========');
+      for (const punch of context.punches) {
+        this.logger.log('----- Processing Punch -----');
+        
+        // SỬA 1: Khai báo ở đây để đoạn check bên dưới không bị báo lỗi "Cannot find name"
+        let finalLate = 0;
+        let finalEarly = 0;
 
-    this.logger.debug(`Total Late Minutes: ${totalLate}`);
-    this.logger.debug(`Total Early Minutes: ${totalEarly}`);
-    this.logger.debug(`Total Miss Penalty: ${missPenalty}`);
+        // =========================
+        // LATE
+        // =========================
+        if (punch.check_in_time) {
+          const lateMin = Math.max(0, differenceInMinutes(punch.check_in_time, shiftStart));
+          finalLate = lateMin;
+
+          if (lateMin <= rule.allowedLateMinutes) finalLate = 0;
+          if (this.hasLeaveStart(context, shiftStart)) finalLate = 0;
+          if (this.hasRemoteStart(context, shiftStart)) finalLate = 0;
+
+          punch.late_hours = finalLate / 60;
+          totalLate += finalLate;
+
+          if (finalLate > 0) {
+            const penalty = this.calculatePenalty(finalLate, rule.latePenalties);
+            context.latePenalty += penalty;
+          }
+        } else {
+          punch.miss_check_in = true;
+        }
+
+        // =========================
+        // EARLY
+        // =========================
+        if (punch.check_out_time) {
+          const earlyMin = Math.max(0, differenceInMinutes(shiftEnd, punch.check_out_time));
+          finalEarly = earlyMin;
+
+          if (this.hasLeaveEnd(context, shiftEnd)) finalEarly = 0;
+          if (this.hasRemoteEnd(context, shiftEnd)) finalEarly = 0;
+
+          punch.early_hours = finalEarly / 60;
+          totalEarly += finalEarly;
+
+          if (finalEarly > rule.allowedEarlyMinutes) {
+            const penalty = this.calculatePenalty(finalEarly, rule.earlyPenalties);
+            context.earlyPenalty += penalty;
+          }
+        } else {
+          punch.miss_check_out = true;
+        }
+
+        // ============================================================
+        // SỬA 2: ĐẶT FLAG ÉP 0 CÔNG NẾU VI PHẠM (1 PHÚT CŨNG CHÉM)
+        // ============================================================
+        if (finalLate > 0 || finalEarly > 0 || punch.miss_check_in || punch.miss_check_out) {
+          this.logger.warn(`STRICT RULE: Violation detected. Force 0 work hours for this punch.`);
+          // Đánh dấu vào object punch để WorkdayCalculationStrategy biết đường mà xử lý
+          punch['is_invalid_workday'] = true; 
+        }
+
+        const isFactoryGroup = context.attendanceGroupCode === 'FACTORY_GROUP';
+
+        if (!isFactoryGroup) {
+            if (finalLate > 0 || finalEarly > 0 || punch.miss_check_in || punch.miss_check_out) {
+                this.logger.warn(`STRICT RULE: Violation detected. Force 0 work hours.`);
+                punch['is_invalid_workday'] = true; 
+            }
+        } else {
+            this.logger.debug(`FACTORY GROUP: Skip strict late/early rule.`);
+        }
+
+        this.logger.debug(
+          `Punch Result → late_hours=${punch.late_hours}, early_hours=${punch.early_hours}, is_invalid=${punch['is_invalid_workday']}`,
+        );
+      }
+
+      context.totalLateMinutes = totalLate;
+      context.totalEarlyMinutes = totalEarly;
+      context.missPenalty += missPenalty;
+
+      this.logger.log('========== END LateEarlyStrategy ==========');
   }
 
   private calculatePenalty(minutes: number, rules: any[]): number {

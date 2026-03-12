@@ -39,93 +39,94 @@ export class AttendanceEngine {
     private leaveStrategy: LeaveStrategy,
   ) {}
 
-async calculateDailyForEmployee(employeeId: string, date: Date): Promise<AttendanceDailyTimesheet> {
+  async calculateDailyForEmployee(employeeId: string, date: Date): Promise<AttendanceDailyTimesheet> {
 
-  this.logger.debug(`================ ENGINE START ================`);
-  this.logger.debug(`EmployeeId: ${employeeId}`);
-  this.logger.debug(`Date: ${date.toISOString()}`);
+    this.logger.debug(`================ ENGINE START ================`);
+    this.logger.debug(`EmployeeId: ${employeeId}`);
+    this.logger.debug(`Date: ${date.toISOString()}`);
 
-  const employee = await this.getEmployee(employeeId);
+    const employee = await this.getEmployee(employeeId);
 
-  this.logger.debug(`Employee loaded`);
-  this.logger.debug(JSON.stringify({
-    id: employee.id,
-    company: employee.company?.companyName,
-    attendanceGroup: employee.attendanceGroup?.groupName,
-    employeeType: employee.employeeType?.typeName
-  }, null, 2));
+    this.logger.debug(`Employee loaded`);
+    this.logger.debug(JSON.stringify({
+      id: employee.id,
+      company: employee.company?.companyName,
+      attendanceGroup: employee.attendanceGroup?.groupName,
+      employeeType: employee.employeeType?.typeName
+    }, null, 2));
 
-  const context = new CalculationContext(employee, date);
+    const context = new CalculationContext(employee, date);
+    
+    context.attendanceGroupCode = context.employee.attendanceGroup?.code;
+    // ===== SHIFT RESOLVE =====
+    context.shiftContext = await this.shiftResolver.resolveShift(context);
 
-  // ===== SHIFT RESOLVE =====
-  context.shiftContext = await this.shiftResolver.resolveShift(context);
+    this.logger.debug(`SHIFT RESOLVED`);
+    // this.logger.debug(JSON.stringify(context.shiftContext, null, 2));
 
-  this.logger.debug(`SHIFT RESOLVED`);
-  this.logger.debug(JSON.stringify(context.shiftContext, null, 2));
+    // ===== PUNCH PROCESSING =====
+    this.logger.debug(`STEP 1: PUNCH PROCESSING START`);
 
-  // ===== PUNCH PROCESSING =====
-  this.logger.debug(`STEP 1: PUNCH PROCESSING START`);
+    if (context.employee.attendanceGroup?.code === 'STORE_GROUP') {
 
-  if (context.employee.attendanceGroup?.code === 'STORE_GROUP') {
+      this.logger.debug(`STORE GROUP DETECTED`);
 
-    this.logger.debug(`STORE GROUP DETECTED`);
+      const rawPunches = await this.punchStrategy.getRawPunches(context);
+      this.storePunchStrategy.process(context, rawPunches);
 
-    const rawPunches = await this.punchStrategy.getRawPunches(context);
-    this.storePunchStrategy.process(context, rawPunches);
+    } else {
 
-  } else {
+      await this.punchStrategy.process(context);
+    
+    }
 
-    await this.punchStrategy.process(context);
-  
+    this.logger.debug(`STEP 1 RESULT - PUNCHES`);
+    // this.logger.debug(JSON.stringify(context.punches, null, 2));
+
+    // ===== BREAK TIME =====
+    this.logger.debug(`STEP 2: BREAK STRATEGY START`);
+    // this.breakStrategy.process(context);
+
+    this.logger.debug(`STEP 2 RESULT`);
+    // this.logger.debug(JSON.stringify({
+    //   restRules: context.shiftContext?.restRules
+    // }, null, 2));
+
+    // ===== LATE / EARLY =====
+    this.logger.debug(`STEP 3: LATE EARLY STRATEGY START`);
+    if (context.employee.attendanceGroup?.code !== 'STORE_GROUP') {
+      this.lateEarlyStrategy.process(context);
+    }
+    // this.lateEarlyStrategy.process(context);
+
+    this.logger.debug(`STEP 3 RESULT`);
+    this.logger.debug(JSON.stringify({
+      totalLateMinutes: context.totalLateMinutes,
+      totalEarlyMinutes: context.totalEarlyMinutes,
+      latePenalty: context.latePenalty,
+      earlyPenalty: context.earlyPenalty
+    }, null, 2));
+
+    // ===== WORKDAY CALC =====
+    this.logger.debug(`STEP 4: WORKDAY CALCULATION START`);
+    this.workdayStrategy.process(context);
+
+    this.logger.debug(`STEP 4 RESULT`);
+    this.logger.debug(JSON.stringify({
+      totalWorkedHours: context.totalWorkedHours
+    }, null, 2));
+
+    // ===== SAVE =====
+    this.logger.debug(`STEP 5: SAVE TIMESHEET`);
+    const result = await this.saveOrUpdateTimesheet(context);
+
+    this.logger.debug(`TIMESHEET RESULT`);
+    // this.logger.debug(JSON.stringify(result, null, 2));
+
+    this.logger.debug(`================ ENGINE END ================`);
+
+    return result;
   }
-
-  this.logger.debug(`STEP 1 RESULT - PUNCHES`);
-  // this.logger.debug(JSON.stringify(context.punches, null, 2));
-
-  // ===== BREAK TIME =====
-  this.logger.debug(`STEP 2: BREAK STRATEGY START`);
-  // this.breakStrategy.process(context);
-
-  this.logger.debug(`STEP 2 RESULT`);
-  // this.logger.debug(JSON.stringify({
-  //   restRules: context.shiftContext?.restRules
-  // }, null, 2));
-
-  // ===== LATE / EARLY =====
-  this.logger.debug(`STEP 3: LATE EARLY STRATEGY START`);
-  if (context.employee.attendanceGroup?.code !== 'STORE_GROUP') {
-    this.lateEarlyStrategy.process(context);
-  }
-  // this.lateEarlyStrategy.process(context);
-
-  this.logger.debug(`STEP 3 RESULT`);
-  this.logger.debug(JSON.stringify({
-    totalLateMinutes: context.totalLateMinutes,
-    totalEarlyMinutes: context.totalEarlyMinutes,
-    latePenalty: context.latePenalty,
-    earlyPenalty: context.earlyPenalty
-  }, null, 2));
-
-  // ===== WORKDAY CALC =====
-  this.logger.debug(`STEP 4: WORKDAY CALCULATION START`);
-  this.workdayStrategy.process(context);
-
-  this.logger.debug(`STEP 4 RESULT`);
-  this.logger.debug(JSON.stringify({
-    totalWorkedHours: context.totalWorkedHours
-  }, null, 2));
-
-  // ===== SAVE =====
-  this.logger.debug(`STEP 5: SAVE TIMESHEET`);
-  const result = await this.saveOrUpdateTimesheet(context);
-
-  this.logger.debug(`TIMESHEET RESULT`);
-  // this.logger.debug(JSON.stringify(result, null, 2));
-
-  this.logger.debug(`================ ENGINE END ================`);
-
-  return result;
-}
 
 // Hàm phụ để phục vụ log debug
   private calculateRawMinutes(context: CalculationContext): number {

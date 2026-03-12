@@ -19,9 +19,14 @@ export class ShiftResolverService {
 
   async resolveShift(context: CalculationContext): Promise<ShiftContext> {
       const employee = context.employee;
+      const groupCode = employee.attendanceGroup?.code;
 
-      if (employee.attendanceGroup?.code === 'STORE_GROUP') {
+      if (groupCode === 'STORE_GROUP') {
           return this.resolveStoreShifts(context);
+      }
+
+      if (groupCode === 'FACTORY_GROUP') {
+        return this.resolveOfficeShift(context);
       }
 
       return this.resolveOfficeShift(context);

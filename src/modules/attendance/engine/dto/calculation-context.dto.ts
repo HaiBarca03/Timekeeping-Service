@@ -9,6 +9,7 @@ export class CalculationContext {
   companyId: string;
   companyName: string;
   attendanceGroupName?: string;
+  attendanceGroupCode?: string;
 
   punches: AttendanceDailyPunch[] = [];
   shiftContext?: ShiftContext;
