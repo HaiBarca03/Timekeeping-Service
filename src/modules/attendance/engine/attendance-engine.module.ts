@@ -14,8 +14,6 @@ import { WorkdayCalculationStrategy } from './strategies/workday-calculation.str
 import { ShiftResolverService } from './services/shift-resolver.service';
 import { RuleFactoryService } from './services/rule-factory.service';
 import { OvertimeRequest } from 'src/modules/leave-management/entities/overtime-request.entity';
-import { WorkLocationRequestItem } from 'src/modules/leave-management/entities/work-location-request-item.entity';
-import { WorkLocationRequest } from 'src/modules/leave-management/entities/work-location-request.entity';
 import { Shift } from 'src/modules/master-data/entities/shift.entity';
 import { LeaveManagementModule } from 'src/modules/leave-management/leave-management.module';
 import { AttendanceMethod } from 'src/modules/master-data/entities/attendance-method.entity';
@@ -23,6 +21,10 @@ import { AttendanceRecordService } from './services/attendance-record.service';
 import { LeaveStrategy } from './strategies/leave.strategy';
 import { ShiftAssignment } from '../entities/shift-assignment.entity';
 import { StorePunchStrategy } from './strategies/store-punch.strategy';
+import { Holiday } from '../entities/holidays.entity';
+import { BreakTimeStrategy } from './strategies/break-time.strategy';
+import { LeavePolicyRule } from 'src/modules/master-data/entities/leave-policy-rule.entity';
+
 
 @Module({
   imports: [
@@ -32,18 +34,18 @@ import { StorePunchStrategy } from './strategies/store-punch.strategy';
       AttendanceMethod,
       AttendanceDailyTimesheet,
       Employee,
+      Holiday,
       ShiftAssignment,
       OvertimeRequest,
-      WorkLocationRequest,
-      WorkLocationRequestItem,
-      Shift,
+      LeavePolicyRule,
+      Shift
     ]),
     forwardRef(() => LeaveManagementModule),
   ],
   providers: [
     AttendanceEngine,
     PunchProcessingStrategy,
-    // BreakTimeStrategy,
+    BreakTimeStrategy,
     LateEarlyStrategy,
     OvertimeStrategy,
     LeaveStrategy,

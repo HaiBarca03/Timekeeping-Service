@@ -17,14 +17,16 @@ type AttendanceDailyTimesheet {
   early_leave_minutes: Int!
   employee: Employee!
   employee_id: ID!
+  is_configured_off_day: Boolean!
   is_early_leave: Boolean!
+  is_holiday: Boolean!
   is_late: Boolean!
   is_leave: Boolean!
   is_ot: Boolean!
   is_recalculated: Boolean!
+  is_redundant: Boolean!
   is_remote: Boolean!
   late_minutes: Int!
-  leaveRequestItems: [LeaveRequestItem]
   leave_hours: Float!
   missing_check_in: Boolean!
   missing_check_out: Boolean!
@@ -162,7 +164,6 @@ type Employee {
   joinedAt: String
   larkId: String
   leavePolicy: LeavePolicy
-  leaveRequests: [LeaveRequest]
   manager: Employee
   managerId: ID
   phoneNumber: String
@@ -224,34 +225,8 @@ type LeavePolicyRule {
   quotaDays: Float
 }
 
-type LeaveRequest {
-  approved_at: DateTime
-  company: Company!
-  company_id: ID!
-  employee: Employee!
-  employee_id: ID!
-  end_time: DateTime!
-  items: [LeaveRequestItem]!
-  leave_hours: Float!
-  leave_type: LeaveType!
-  leave_type_detail: String
-  leave_type_id: ID!
-  reason: String
-  requester: Employee!
-  requester_id: ID!
-  start_time: DateTime!
-  status: String!
-  submitted_at: DateTime!
-}
-
-type LeaveRequestItem {
-  daily_timesheet_id: ID!
-  leave_minutes: Int!
-  leave_value: Float!
-  request_id: ID!
-}
-
 type LeaveType {
+  code: String!
   company: Company!
   companyId: ID!
   isDeductLeave: Boolean!
@@ -260,13 +235,6 @@ type LeaveType {
 
 type Mutation {
   receiveLarkBatchPunch(companyId: String!, larkData: JSON!): BatchPunchResult!
-}
-
-type OvertimeConversionType {
-  company: Company
-  companyId: ID!
-  conversionName: String!
-  multiplier: Float!
 }
 
 type PaginationInfo {
@@ -339,31 +307,4 @@ type WorkLocation {
   locationName: String!
   longitude: Float
   radiusMeters: Float
-}
-
-type WorkLocationRequest {
-  company: Company!
-  company_id: ID!
-  end_time: DateTime!
-  items: [WorkLocationRequestItem]!
-  location: String
-  request_type: WorkLocationRequestType!
-  request_type_id: ID!
-  requester: Employee!
-  requester_id: ID!
-  start_time: DateTime!
-  status: String!
-}
-
-type WorkLocationRequestItem {
-  daily_timesheet: AttendanceDailyTimesheet!
-  daily_timesheet_id: ID!
-  request: WorkLocationRequest!
-  request_id: ID!
-}
-
-type WorkLocationRequestType {
-  company: Company
-  companyId: ID!
-  typeName: String!
 }

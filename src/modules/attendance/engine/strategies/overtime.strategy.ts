@@ -1,71 +1,70 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Between } from 'typeorm';
-import { OvertimeRequest } from 'src/modules/leave-management/entities/overtime-request.entity';
+import { Repository } from 'typeorm';
 import { CalculationContext } from '../dto/calculation-context.dto';
-import { OvertimeConversionCode } from 'src/constants/overtime-conversion.enum';
-import { differenceInMinutes } from 'date-fns';
+import { AttendanceRequest, RequestType } from '../../../leave-management/entities/attendance-request.entity';
 
 @Injectable()
 export class OvertimeStrategy {
   private readonly logger = new Logger(OvertimeStrategy.name);
+
   constructor(
-    @InjectRepository(OvertimeRequest)
-    private overtimeRepo: Repository<OvertimeRequest>,
+    @InjectRepository(AttendanceRequest)
+    private requestRepo: Repository<AttendanceRequest>,
   ) {}
 
   async process(context: CalculationContext): Promise<void> {
-      const { id: employeeId } = context.employee;
-      const { date } = context;
+    const { employee, date } = context;
 
-      const startOfDay = new Date(date);
-      startOfDay.setHours(0, 0, 0, 0);
-      const endOfDay = new Date(date);
-      endOfDay.setHours(23, 59, 59, 999);
+    // 1. KIỂM TRA ĐỐI TƯỢNG (Dựa trên JobLevel Code)
+    // Quy tắc: Chỉ nhân viên mới tính OT, Quản lý (MGR, HEAD, DIR...) không tính.
+    const jobLevelCode = employee.jobLevel?.code?.toUpperCase();
+    const managementCodes = ['MGR', 'HEAD', 'DIR', 'CEO', 'MANAGER'];
 
-      this.logger.debug(
-        `Query OT cho NV ${employeeId} từ ${startOfDay.toISOString()} đến ${endOfDay.toISOString()}`
-      );
+    if (managementCodes.some(code => jobLevelCode?.includes(code))) {
+      this.logger.debug(`Skipping OT: Employee ${employee.id} is Management level (${jobLevelCode})`);
+      return;
+    }
 
-      const otRequests = await this.overtimeRepo.find({
-        where: {
-          requester_id: employeeId,
-          status: 'APPROVED',
-          start_time: Between(startOfDay, endOfDay),
-        },
-        relations: ['conversion_type'],
-      });
+    // 2. QUERY ĐƠN OT ĐÃ PHÊ DUYỆT
+      const otRequest = await this.requestRepo.createQueryBuilder('request')
+        .innerJoin('request.leave_type', 'lt')
+        .innerJoin('request.detail_overtime', 'detail')
+        .select([
+          'detail.hours_ratio as "hoursRatio"',
+          'detail.ratio_convert as "ratio"',
+          'detail.convert_type as "convertType"'
+        ])
+        .where('request.employee_id = :employeeId', { employeeId: employee.id })
+        .andWhere('request.type = :type', { type: RequestType.OVERTIME })
+        .andWhere('request.status = :status', { status: 'Approved' })
+        .andWhere('request.is_counted = :isCounted', { isCounted: true })
+        .andWhere('request.applied_date = :date', { 
+          date: date.toISOString().split('T')[0] 
+        })
+        .getRawOne();
 
-      this.logger.log(`Tìm thấy ${otRequests.length} phiếu OT cho ngày ${date}`);
+    if (!otRequest) return;
 
-      let totalPaidOtMinutes = 0;
-      let totalCompensatoryMinutes = 0;
+    // 3. KIỂM TRA ĐIỀU KIỆN TỐI THIỂU 1 TIẾNG (Theo yêu cầu HM)
+    const hours = parseFloat(otRequest.hoursRatio) || 0;
+    
+    if (hours < 1) {
+      this.logger.warn(`OT Rejected: ${hours}h < 1h minimum requirement.`);
+      return;
+    }
 
-      for (const request of otRequests) {
-        const otDurationMinutes = differenceInMinutes(
-          new Date(request.end_time),
-          new Date(request.start_time),
-        );
+    // 4. CẬP NHẬT VÀO CONTEXT
+    context.overtimeMinutes = hours * 60;
+    
+    // Nếu là loại "Nghỉ bù", ta tách ra field riêng trong Context của bạn
+    if (otRequest.convertType === 'Nghỉ bù') {
+        context.overtimeCompensatoryMinutes = hours * 60;
+    }
 
-        const multiplier = parseFloat(request.conversion_type?.multiplier as any) || 1.0;
-        const effectiveOtMinutes = otDurationMinutes * multiplier;
+    // Lưu thêm ratio vào context (dùng biến động) để phục vụ lưu Timesheet
+    context['ot_ratio'] = parseFloat(otRequest.ratio) || 1.0;
 
-        this.logger.debug(
-          `Phiếu ID ${request.id}: Gốc ${otDurationMinutes}p, Hệ số ${multiplier}, Sau quy đổi ${effectiveOtMinutes}p (${request.conversion_type?.conversionName})`
-        );
-
-        if (request.conversion_type?.conversionName === OvertimeConversionCode.COMPENSATORY_LEAVE) {
-          totalCompensatoryMinutes += effectiveOtMinutes;
-        } else {
-          totalPaidOtMinutes += effectiveOtMinutes;
-        }
-      }
-
-      context.overtimeMinutes = (context.overtimeMinutes || 0) + totalPaidOtMinutes;
-      context.overtimeCompensatoryMinutes = (context.overtimeCompensatoryMinutes || 0) + totalCompensatoryMinutes;
-      
-      this.logger.log(
-        `Kết quả ngày ${date}: PaidOT=${context.overtimeMinutes}, CompOT=${context.overtimeCompensatoryMinutes}`
-      );
+    this.logger.debug(`OT Approved: ${hours}h, Ratio: ${otRequest.ratio}`);
   }
 }

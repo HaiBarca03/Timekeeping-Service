@@ -12,10 +12,16 @@ export class LateEarlyStrategy {
 
   process(context: CalculationContext): void {
       this.logger.log('========== START LateEarlyStrategy ==========');
+      if (context.isConfiguredOffDay) {
+          this.logger.log('Configured Off Day detected → skip LateEarlyStrategy');
+          context.totalLateMinutes = 0;
+          context.totalEarlyMinutes = 0;
+          return;
+      }
 
       if (!context.shiftContext?.rule) {
-        this.logger.warn('No shift rule found → skip LateEarlyStrategy');
-        return;
+          this.logger.warn('No shift rule found → skip LateEarlyStrategy');
+          return;
       }
 
       const rule = this.ruleFactory.getLateEarlyRule(
@@ -42,7 +48,8 @@ export class LateEarlyStrategy {
         // LATE
         // =========================
         if (punch.check_in_time) {
-          const lateMin = Math.max(0, differenceInMinutes(punch.check_in_time, shiftStart));
+          const actualShiftStart = this.getShiftTimeOnDate(punch.check_in_time, shiftStart);
+          const lateMin = Math.max(0, differenceInMinutes(punch.check_in_time, actualShiftStart));
           finalLate = lateMin;
 
           if (lateMin <= rule.allowedLateMinutes) finalLate = 0;
@@ -64,7 +71,8 @@ export class LateEarlyStrategy {
         // EARLY
         // =========================
         if (punch.check_out_time) {
-          const earlyMin = Math.max(0, differenceInMinutes(shiftEnd, punch.check_out_time));
+          const actualShiftStart = this.getShiftTimeOnDate(punch.check_out_time, shiftStart);
+          const earlyMin = Math.max(0, differenceInMinutes(shiftEnd, actualShiftStart));
           finalEarly = earlyMin;
 
           if (this.hasLeaveEnd(context, shiftEnd)) finalEarly = 0;
@@ -99,6 +107,13 @@ export class LateEarlyStrategy {
             }
         } else {
             this.logger.debug(`FACTORY GROUP: Skip strict late/early rule.`);
+        }
+
+        const isSaturday = context.date.getDay() === 6;
+        if (isSaturday && !context.isConfiguredOffDay) {
+            if (context.totalLateMinutes > 0 || context.totalEarlyMinutes > 0) {
+                this.logger.warn("Saturday violation: No partial work allowed.");
+            }
         }
 
         this.logger.debug(
@@ -140,6 +155,15 @@ export class LateEarlyStrategy {
     this.logger.debug(`parseTime ${timeStr} → ${dt.toISOString()}`);
 
     return dt;
+  }
+
+  private getShiftTimeOnDate(targetDate: Date, shiftTime: Date): Date {
+    const result = new Date(targetDate); // Lấy ngày của punch (Ngày chấm công)
+    result.setHours(shiftTime.getHours());
+    result.setMinutes(shiftTime.getMinutes());
+    result.setSeconds(0);
+    result.setMilliseconds(0);
+    return result;
   }
 
   private hasLeaveStart(context: CalculationContext, shiftStart: Date): boolean {

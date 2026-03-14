@@ -1,7 +1,6 @@
 import { Module } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { LeavePolicy } from "./entities/leave-policy.entity";
-import { OvertimeConversionType } from "./entities/overtime-conversion-type.entity";
 import { LeaveType } from "./entities/leave-type.entity";
 import { AttendanceGroup } from "./entities/attendance-group.entity";
 import { Company } from "./entities/company.entity";
@@ -15,7 +14,6 @@ import { EmployeeStatus } from "./entities/employee-status.entity";
 import { LeavePolicyRule } from "./entities/leave-policy-rule.entity";
 import { JobLevel } from "./entities/job-level.entity";
 import { TimesheetAdjustmentType } from "./entities/timesheet-adjustment-type.entity";
-import { WorkLocationRequestType } from "./entities/work-location-request-type.entity";
 import { WorkLocation } from "./entities/work-locations.entity";
 import { MasterDataResolver } from "./graphql/resolvers/master-data.resolver";
 import { Department } from "./entities/department.entity";
@@ -34,12 +32,10 @@ import { MasterDataController } from "./master-data.controller";
             LeavePolicyRule,
             LeavePolicy,
             LeaveType,
-            OvertimeConversionType,
             ShiftRestRule,
             // ShiftRule,
             Shift,
             TimesheetAdjustmentType,
-            WorkLocationRequestType,
             WorkLocation,
             Department,
         ]),

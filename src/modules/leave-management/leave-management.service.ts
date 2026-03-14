@@ -1,129 +1,117 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Between } from 'typeorm';
-import { LeaveRequest } from './entities/leave-request.entity';
-import { LeaveRequestItem } from './entities/leave-request-item.entity';
-import { AttendanceEngine } from '../attendance/engine/attendance.engine';
-import { AttendanceDailyTimesheet } from '../attendance/entities/attendance-daily-timesheet.entity';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { DataSource } from 'typeorm';
+import { AttendanceRequest, RequestType } from './entities/attendance-request.entity';
+import { RequestDetailTimeOff } from './entities/request-detail-time-off.entity';
 import { Employee } from '../master-data/entities/employee.entity';
-import { Queue } from 'bullmq';
-import { InjectQueue } from '@nestjs/bullmq';
-import { JOB_NAMES, QUEUE_NAMES } from 'src/constants/queue.constants';
-import { ImportLeaveDto } from './dto/import-leave.dto';
+import { LeaveType } from '../master-data/entities/leave-type.entity';
 
 @Injectable()
 export class LeaveManagementService {
   private readonly logger = new Logger(LeaveManagementService.name);
 
-  constructor(
-    @InjectRepository(LeaveRequest)
-    private leaveRequestRepo: Repository<LeaveRequest>,
+  constructor(private dataSource: DataSource) {}
 
-    @InjectRepository(LeaveRequestItem)
-    private leaveItemRepo: Repository<LeaveRequestItem>,
-
-    @InjectRepository(AttendanceDailyTimesheet)
-    private timesheetRepo: Repository<AttendanceDailyTimesheet>,
-
-    @InjectRepository(Employee)
-    private employeeRepo: Repository<Employee>,
+  async importFromExternalSource(payload: any, companyId: string) {
+    this.logger.log(`>>> BẮT ĐẦU IMPORT: companyId=${companyId}`);
     
-    private attendanceEngine: AttendanceEngine,
+    const items = payload?.data?.items || [];
+    this.logger.log(`>>> Số lượng bản ghi nhận được: ${items.length}`);
 
-    @InjectQueue(QUEUE_NAMES.CALCULATE_DAILY) 
-    private attendanceQueue: Queue,
-  ) {}
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
 
-  async processBulkLeaves(leaveDataArray: ImportLeaveDto[]) {
-    const recalculateMap = new Map<string, Set<string>>();
-    console.log('>>> [START] Nhận danh sách import:', leaveDataArray.length, 'phiếu');
-
-  for (const data of leaveDataArray) {
-      const employee = await this.employeeRepo.findOne({
-        where: { userId: data.userId, companyId: data.company_id }
-      });
-
-      if (!employee) {
-        this.logger.error(`Không tìm thấy nhân viên: ${data.userId}`);
-        continue;
-      }
-
-      let finalLeaveTypeId = data.leave_type_id;
-
-      const leaveEntity = this.leaveRequestRepo.create({
-        ...data,
-        leave_type_id: finalLeaveTypeId,
-        employee_id: employee.id,
-        requester_id: employee.id,
-        status: 'APPROVED',
-        submitted_at: new Date(),
-        approved_at: new Date(),
-      } as Partial<LeaveRequest>);
-
-      const savedLeave = await this.leaveRequestRepo.save(leaveEntity);
-
-      const items = await this.createLeaveItems(savedLeave);
-      const empId = savedLeave.employee_id;
-      if (!recalculateMap.has(empId)) recalculateMap.set(empId, new Set<string>());
-
+    try {
       for (const item of items) {
-        const timesheet = await this.timesheetRepo.findOne({ where: { id: item.daily_timesheet_id } });
-        if (timesheet) {
-          recalculateMap.get(empId)!.add(new Date(timesheet.attendance_date).toISOString().split('T')[0]);
-        }
-      }
-    }
-
-    const jobs: any[] = []; 
-    for (const [employeeId, dates] of recalculateMap.entries()) {
-      for (const dateStr of dates) {
-        console.log(`[QUEUE] Chuẩn bị job tính lại: Emp=${employeeId}, Date=${dateStr}`);
-        jobs.push({
-          name: JOB_NAMES.CALCULATE_DAILY, 
-          data: { employee_id: employeeId, date: dateStr },
-          opts: {
-            attempts: 3,
-            removeOnComplete: true,
-            jobId: `calc-${employeeId}-${dateStr}-${Date.now()}`, 
-          },
+        const { record_id, fields } = item;
+        this.logger.log(`--- Đang xử lý record_id: ${record_id} ---`);
+        
+        // 1. Lấy userId từ JSON
+        const externalUserId = fields["Người lập phiếu"]?.[0]?.id;
+        const leaveTypeName = fields["Chi tiết loại nghỉ"];
+        this.logger.log(`Dữ liệu từ JSON: userId=${externalUserId}, leaveType=${leaveTypeName}`);
+        
+        // 2. Query tìm Employee
+        const employee = await queryRunner.manager.findOne(Employee, {
+          where: { userId: externalUserId, companyId: companyId }
         });
+
+        if (!employee) {
+          this.logger.warn(`!!! THẤT BẠI: Không tìm thấy Employee với userId ${externalUserId} và companyId ${companyId}`);
+          continue; 
+        }
+        this.logger.log(`Thành công: Tìm thấy Employee ID=${employee.id}`);
+
+        // 3. Tìm LeaveType
+        const leaveType = await queryRunner.manager.findOne(LeaveType, {
+          where: { leaveTypeName: leaveTypeName, companyId: companyId }
+        });
+        this.logger.log(`LeaveType tìm thấy: ${leaveType?.id || 'NULL'}`);
+
+        // 4. Khởi tạo/Cập nhật AttendanceRequest
+        let request = await queryRunner.manager.findOne(AttendanceRequest, {
+          where: { record_id: record_id }
+        });
+
+        if (!request) {
+          this.logger.log(`Tạo mới AttendanceRequest`);
+          request = new AttendanceRequest();
+          request.record_id = record_id;
+        } else {
+          this.logger.log(`Cập nhật AttendanceRequest cũ: ${request.id}`);
+        }
+
+        const startTime = new Date(fields["Thời gian bắt đầu"]);
+        
+        request.request_id = fields["Mã đơn"]?.[0]?.text;
+        request.employee_id = employee.id;
+        request.company_id = companyId;
+        request.status = fields["Trạng thái duyệt"];
+        request.note = leaveTypeName;
+        request.type = RequestType.LEAVE;
+        request.applied_date = startTime;
+        request.total_hours = fields["Số giờ nghỉ"];
+        request.leave_type_id = leaveType?.id || null;
+        request.raw_data = item; 
+
+        const savedRequest = await queryRunner.manager.save(request);
+        this.logger.log(`Đã SAVE AttendanceRequest: ID=${savedRequest.id}`);
+
+        // 5. Khởi tạo/Cập nhật RequestDetailTimeOff
+        let detail = await queryRunner.manager.findOne(RequestDetailTimeOff, {
+          where: { attendance_request_id: savedRequest.id }
+        });
+
+        if (!detail) {
+          this.logger.log(`Tạo mới Detail`);
+          detail = new RequestDetailTimeOff();
+          detail.attendance_request_id = savedRequest.id;
+        }
+
+        detail.start_time = startTime;
+        detail.end_time = new Date(fields["Thời gian kết thúc"]);
+        detail.hours = fields["Số giờ nghỉ"];
+        detail.leave_type_details = leaveTypeName;
+        detail.leave_type_id = leaveType?.id || null;
+
+        await queryRunner.manager.save(detail);
+        this.logger.log(`Đã SAVE RequestDetailTimeOff thành công.`);
       }
+
+      this.logger.log(`>>> CHUẨN BỊ COMMIT TRANSACTION....`);
+      await queryRunner.commitTransaction();
+      this.logger.log(`>>> TRANSACTION DONE!`);
+      
+      return { success: true, message: `Successfully processed items.` };
+
+    } catch (error) {
+      this.logger.error('!!! LỖI TRONG QUÁ TRÌNH XỬ LÝ - ROLLBACK NGAY LẬP TỨC');
+      await queryRunner.rollbackTransaction();
+      this.logger.error('Chi tiết lỗi:', error.stack);
+      throw error;
+    } finally {
+      this.logger.log(`>>> GIẢI PHÓNG QUERY RUNNER`);
+      await queryRunner.release();
     }
-
-    if (jobs.length > 0) {
-      await this.attendanceQueue.addBulk(jobs);
-      this.logger.log(`🚀 Đã bắn ${jobs.length} jobs vào BullMQ.`);
-    }
-
-    return { success: true, count: leaveDataArray.length };
-  }
-
-  private async createLeaveItems(leave: LeaveRequest): Promise<LeaveRequestItem[]> {
-    const start = new Date(leave.start_time);
-    start.setHours(0, 0, 0, 0);
-    const end = new Date(leave.end_time);
-    end.setHours(23, 59, 59, 999);
-
-    const relatedTimesheets = await this.timesheetRepo.find({
-      where: { 
-        employee_id: leave.employee_id, 
-        attendance_date: Between(start, end) 
-      }
-    });
-
-    if (relatedTimesheets.length === 0) return [];
-
-    const itemsToSave = relatedTimesheets.map(ts => {
-      const hoursForThisDay = relatedTimesheets.length === 1 ? Number(leave.leave_hours) : 8;
-
-      return this.leaveItemRepo.create({
-        request_id: leave.id,
-        daily_timesheet_id: ts.id,
-        leave_value: hoursForThisDay / 8, 
-        leave_minutes: hoursForThisDay * 60,
-      });
-    });
-
-    return (await this.leaveItemRepo.save(itemsToSave)) as LeaveRequestItem[];
   }
 }

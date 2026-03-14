@@ -16,7 +16,6 @@ import { EmployeeType } from './employee-type.entity';
 import { EmployeeStatus } from './employee-status.entity';
 import { AttendanceMethod } from './attendance-method.entity';
 import { LeavePolicy } from './leave-policy.entity';
-import { LeaveRequest } from '../../leave-management/entities/leave-request.entity';
 import { AttendanceMonthlyTimesheet } from '../../attendance/entities/attendance-monthly-timesheet.entity';
 import { AttendancePunchRecord } from '../../attendance/entities/attendance-punch-record.entity';
 import { Field, Float, ID, ObjectType } from '@nestjs/graphql';
@@ -85,7 +84,7 @@ export class Employee extends BaseEntity {
 
   @Field(() => String, { nullable: true })
   @Column({ name: 'resigned_at', type: 'date', nullable: true })
-  resignedAt: Date; // Ngày nghỉ việc
+  resignedAt: Date | null; // Ngày nghỉ việc
 
   @Field()
   @Column({ default: false })
@@ -142,10 +141,6 @@ export class Employee extends BaseEntity {
   @Field(() => [AttendanceMonthlyTimesheet], { nullable: 'itemsAndList' })
   @OneToMany(() => AttendanceMonthlyTimesheet, (ts) => ts.employee)
   attendanceMonthlyTimesheets: AttendanceMonthlyTimesheet[];
-
-  @Field(() => [LeaveRequest], { nullable: 'itemsAndList' })
-  @OneToMany(() => LeaveRequest, (req) => req.employee)
-  leaveRequests: LeaveRequest[];
 
   @Field(() => [AttendancePunchRecord], { nullable: 'itemsAndList' })
   @OneToMany(() => AttendancePunchRecord, (ts) => ts.employee)

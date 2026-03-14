@@ -13,11 +13,11 @@ export class JobLevel extends BaseEntity {
 
   @Field()
   @Column({ name: 'code', type: 'varchar', length: 50 })
-  code: string; // 'OFFICE', 'FACTORY', 'STORE', 'OTHERS'
+  code: string; 
 
   @Field()
   @Column({ name: 'level_name', type: 'varchar' })
-  levelName: string; // 'Văn phòng', 'Xưởng', 'Cửa hàng', 'Khác'
+  levelName: string; 
 
   @Field()
   @Column({ name: 'status', type: 'varchar', length: 20, default: 'ACTIVE' })

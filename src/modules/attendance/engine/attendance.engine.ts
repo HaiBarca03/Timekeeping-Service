@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ShiftResolverService } from './services/shift-resolver.service';
 import { PunchProcessingStrategy } from './strategies/punch-processing.strategy';
-// import { BreakTimeStrategy } from './strategies/break-time.strategy';
+import { BreakTimeStrategy } from './strategies/break-time.strategy';
 import { LateEarlyStrategy } from './strategies/late-early.strategy';
 import { OvertimeStrategy } from './strategies/overtime.strategy';
 import { RemoteWorkStrategy } from './strategies/remote-work.strategy';
@@ -30,7 +30,7 @@ export class AttendanceEngine {
 
     private shiftResolver: ShiftResolverService,
     private punchStrategy: PunchProcessingStrategy,
-    // private breakStrategy: BreakTimeStrategy,
+    private breakStrategy: BreakTimeStrategy,
     private storePunchStrategy: StorePunchStrategy,
     private lateEarlyStrategy: LateEarlyStrategy,
     private overtimeStrategy: OvertimeStrategy,
@@ -85,12 +85,9 @@ export class AttendanceEngine {
 
     // ===== BREAK TIME =====
     this.logger.debug(`STEP 2: BREAK STRATEGY START`);
-    // this.breakStrategy.process(context);
+    this.breakStrategy.process(context);
 
     this.logger.debug(`STEP 2 RESULT`);
-    // this.logger.debug(JSON.stringify({
-    //   restRules: context.shiftContext?.restRules
-    // }, null, 2));
 
     // ===== LATE / EARLY =====
     this.logger.debug(`STEP 3: LATE EARLY STRATEGY START`);
@@ -106,6 +103,15 @@ export class AttendanceEngine {
       latePenalty: context.latePenalty,
       earlyPenalty: context.earlyPenalty
     }, null, 2));
+
+    this.logger.debug(`STEP 4.5: REMOTE WORK STRATEGY START`);
+    await this.remoteStrategy.process(context);
+
+    this.logger.debug(`STEP 4.6: OVERTIME STRATEGY START`);
+    await this.overtimeStrategy.process(context);
+
+    // ===== 6. LEAVE STRATEGY (NGHỈ PHÉP/CHẾ ĐỘ) =====
+    await this.leaveStrategy.process(context);
 
     // ===== WORKDAY CALC =====
     this.logger.debug(`STEP 4: WORKDAY CALCULATION START`);
@@ -128,7 +134,7 @@ export class AttendanceEngine {
     return result;
   }
 
-// Hàm phụ để phục vụ log debug
+  // Hàm phụ để phục vụ log debug
   private calculateRawMinutes(context: CalculationContext): number {
       let mins = 0;
       context.punches.forEach(p => {
@@ -149,6 +155,7 @@ export class AttendanceEngine {
         'attendanceGroup.defaultShift.restRules',
         'attendanceMethod',
         'employeeType',
+        'jobLevel'
       ],
     });
 
@@ -179,11 +186,11 @@ export class AttendanceEngine {
       timesheet.shift_id = context.shiftContext?.shift?.id ?? undefined;
 
       // --- 2. Dữ liệu Check-in/out ---
-      const primaryPunch = context.punches[0];
-
+      const primaryPunch = context.punches && context.punches.length > 0 ? context.punches[0] : null;
+      timesheet.is_configured_off_day = context.isConfiguredOffDay || false;
+      
       timesheet.check_in_raw = primaryPunch?.check_in_time ?? null;
       timesheet.check_out_raw = primaryPunch?.check_out_time ?? null;
-      
       timesheet.check_in_actual = primaryPunch?.check_in_time ?? null; 
       timesheet.check_out_actual = primaryPunch?.check_out_time ?? null;
 
@@ -213,11 +220,9 @@ export class AttendanceEngine {
       timesheet.remote_hours = (context.onlineValue + context.businessTripValue) * timesheet.total_work_hours_standard;
       
       timesheet.is_ot = (context.overtimeMinutes ?? 0) > 0;
-      timesheet.ot_hours = (context.overtimeMinutes ?? 0) / 60;
+      timesheet.ot_hours = (context.overtimeMinutes ?? 0) / 60; // Giờ OT thực tế
+      // timesheet.ot_minutes = context.overtimeMinutes;
       
-      // SỬA LỖI: Property 'actual_workday' không tồn tại trên Entity 
-      // Bạn cần kiểm tra lại file attendance-daily-timesheet.entity.ts
-      // Nếu bạn muốn dùng 'actual_work_hours' thay thế:
       const currentWorkday = context.finalActualWorkday ?? 0;
 
       if (currentWorkday >= 1) timesheet.attendance_status = 'Full';

@@ -4,8 +4,8 @@ import { BaseEntity } from '../../../database/entities/base.entity';
 import { Employee } from '../../master-data/entities/employee.entity';
 import { AttendanceDailyPunch } from './attendance-daily-punch.entity';
 import { AttendancePunchRecord } from './attendance-punch-record.entity';
-import { LeaveRequestItem } from '../../leave-management/entities/leave-request-item.entity';
 import { Company } from '../../master-data/entities/company.entity';
+import { AttendanceRequest } from '../../leave-management/entities/attendance-request.entity';
 
 @ObjectType()
 @Entity('attendance_daily_timesheets')
@@ -131,6 +131,14 @@ export class AttendanceDailyTimesheet extends BaseEntity {
   @Column({ type: 'decimal', precision: 6, scale: 2, default: 0 })
   ot_hours: number;
 
+  @Field()
+  @Column({ default: false })
+  is_holiday: boolean;
+
+  @Field()
+  @Column({ default: false })
+  is_redundant: boolean;
+
   @Field(() => Float)
   @Column({ type: 'decimal', precision: 6, scale: 2, default: 0 })
   adjustment_hours: number;
@@ -152,6 +160,10 @@ export class AttendanceDailyTimesheet extends BaseEntity {
   @Column({ default: false })
   is_recalculated: boolean;
 
+  @Field()
+  @Column({ default: false })
+  is_configured_off_day: boolean;
+
   // --- Relationships ---
   @Field(() => Company)
   @ManyToOne(() => Company, company => company.attendanceTimesheets)
@@ -166,7 +178,7 @@ export class AttendanceDailyTimesheet extends BaseEntity {
   @OneToMany(() => AttendanceDailyPunch, punch => punch.daily_timesheet)
   punches: AttendanceDailyPunch[];
 
-  @Field(() => [LeaveRequestItem], { nullable: 'itemsAndList' }) 
-  @OneToMany(() => LeaveRequestItem, item => item.dailyTimesheet)
-  leaveRequestItems: LeaveRequestItem[];
+  // Trong AttendanceDailyTimesheet
+  @OneToMany(() => AttendanceRequest, (request) => request.daily_timesheet)
+  requests: AttendanceRequest[];
 }

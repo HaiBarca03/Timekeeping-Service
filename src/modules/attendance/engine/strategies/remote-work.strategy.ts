@@ -1,77 +1,43 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Between } from 'typeorm';
-import { WorkLocationRequest } from 'src/modules/leave-management/entities/work-location-request.entity';
-import { WorkLocationRequestItem } from 'src/modules/leave-management/entities/work-location-request-item.entity';
+import { Repository } from 'typeorm';
 import { CalculationContext } from '../dto/calculation-context.dto';
-import { RemoteRequestTypeCode } from 'src/constants/remote-request-type.enum';
+import { AttendanceRequest, RequestType } from '../../../leave-management/entities/attendance-request.entity';
 
 @Injectable()
 export class RemoteWorkStrategy {
+  private readonly logger = new Logger(RemoteWorkStrategy.name);
+
   constructor(
-    @InjectRepository(WorkLocationRequest)
-    private workLocationRepo: Repository<WorkLocationRequest>,
-    @InjectRepository(WorkLocationRequestItem)
-    private workLocationItemRepo: Repository<WorkLocationRequestItem>,
+    @InjectRepository(AttendanceRequest)
+    private requestRepo: Repository<AttendanceRequest>,
   ) {}
+
   async process(context: CalculationContext): Promise<void> {
-    const employeeId = context.employee.id;
-    const date = context.date;
+    const { employee, date } = context;
 
-    const startOfDay = new Date(date);
-    startOfDay.setHours(0, 0, 0, 0);
-    const endOfDay = new Date(date);
-    endOfDay.setHours(23, 59, 59, 999);
+    // 1. Tìm đơn Remote của ngày hôm nay
+      const remoteRequest = await this.requestRepo.createQueryBuilder('request')
+        .innerJoin('request.leave_type', 'lt')
+        .innerJoin('request.detail_time_off', 'detail')
+        .select('detail.hours', 'hours')
+        .where('request.employee_id = :employeeId', { employeeId: employee.id })
+        .andWhere('request.type = :type', { type: RequestType.REMOTE }) 
+        .andWhere('request.status = :status', { status: 'Approved' })
+        .andWhere('request.is_counted = :isCounted', { isCounted: true })
+        .andWhere(':date BETWEEN CAST(detail.start_time AS DATE) AND CAST(detail.end_time AS DATE)', { 
+          date: date.toISOString().split('T')[0] 
+        })
+        .getRawOne();
 
-    const requests = await this.workLocationRepo.find({
-      where: {
-        requester_id: employeeId,
-        status: 'approved',
-        start_time: Between(startOfDay, endOfDay),
-      },
-      relations: ['request_type', 'items'],
-    });
-
-    if (!requests.length) return;
-
-    let onlineValue = 0;
-    let businessTripValue = 0;
-    let isRemoteOrOnline = false;
-
-    for (const request of requests) {
-      const typeCode = request.request_type?.typeName as RemoteRequestTypeCode;
-      const currentItem = request.items?.find(
-        (item) => item.daily_timesheet_id === context.dailyTimesheet?.id
-      );
+    if (remoteRequest) {
+      // 2. CHỈ GÁN VÀO onlineValue (Không cộng totalWorkedHours ở đây)
+      // remoteRequest.hours là kết quả từ câu select trên
+      context.onlineValue = parseFloat(remoteRequest.hours) || 0; 
       
-      const weight = (currentItem as any)?.value || 1.0;
-
-      switch (typeCode) {
-        case RemoteRequestTypeCode.WORK_FROM_HOME:
-        case RemoteRequestTypeCode.OUTSIDE_WORK:
-          onlineValue += weight;
-          isRemoteOrOnline = true;
-          break;
-
-        case RemoteRequestTypeCode.BUSINESS_TRIP:
-          businessTripValue += weight;
-          isRemoteOrOnline = true;
-          break;
-      }
-    }
-
-    context.onlineValue = (context.onlineValue || 0) + onlineValue;
-    context.businessTripValue = (context.businessTripValue || 0) + businessTripValue;
-
-    if (isRemoteOrOnline) {
-      context.missPenalty = 0;
-
-      const noValidPunches = context.punches.every(p => p.miss_check_in && p.miss_check_out);
-      
-      if (noValidPunches) {
-        const standardHours = context.shiftContext?.getStandardWorkHours() || 8;
-        context.totalWorkedHours = standardHours * (onlineValue + businessTripValue);
-      }
+      this.logger.debug(`Step Remote: Found ${context.onlineValue} hours for employee ${employee.id}`);
+    } else {
+      context.onlineValue = 0; // Đảm bảo không bị dữ liệu cũ
     }
   }
 }

@@ -14,6 +14,16 @@ export class CalculationContext {
   punches: AttendanceDailyPunch[] = [];
   shiftContext?: ShiftContext;
 
+  // Thêm vào class CalculationContext
+  isAngel: boolean = false;
+  holidayTime: number = 0; // Giờ hưởng lễ
+  isRedundant: number = 0; // 1: có công thừa, 0: không
+  workHoursRedundant: number = 0; // Số giờ thừa
+  isSaturdayOff: boolean = false;
+  isSaturdayCandidate: boolean = false; 
+
+  isConfiguredOffDay: boolean = false;
+  isHoliday: boolean = false;
   totalWorkedHours: number = 0;
   totalLateMinutes: number = 0;
   totalEarlyMinutes: number = 0;

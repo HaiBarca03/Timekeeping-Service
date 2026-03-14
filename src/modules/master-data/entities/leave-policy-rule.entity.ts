@@ -18,7 +18,7 @@ export class LeavePolicyRule extends BaseEntity {
 
   @Field(() => Float, { nullable: true })
   @Column({ name: 'quota_days', type: 'decimal', precision: 6, scale: 2, nullable: true })
-  quotaDays: number;
+  quotaDays: number | null;
 
   @Field()
   @Column({ name: 'is_deduct_leave', type: 'boolean', default: true })
