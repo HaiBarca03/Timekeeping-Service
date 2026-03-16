@@ -26,21 +26,18 @@ import { AttendanceRequest } from './entities/attendance-request.entity';
       AttendanceRequest,
       RequestDetailAdjustment,
       RequestDetailOvertime,
-      RequestDetailTimeOff
+      RequestDetailTimeOff,
     ]),
-    BullModule.registerQueue({
-      name: QUEUE_NAMES.ATTENDANCE,
-    }),
+    // BullModule.registerQueue({
+    //   name: QUEUE_NAMES.ATTENDANCE,
+    // }),
     BullModule.registerQueue({
       name: QUEUE_NAMES.CALCULATE_DAILY,
     }),
     forwardRef(() => AttendanceModule),
   ],
-  controllers: [LeaveManagementController], 
-  providers: [LeaveManagementService],     
-  exports: [
-    LeaveManagementService, 
-    TypeOrmModule,
-  ],
+  controllers: [LeaveManagementController],
+  providers: [LeaveManagementService],
+  exports: [LeaveManagementService, TypeOrmModule],
 })
 export class LeaveManagementModule {}

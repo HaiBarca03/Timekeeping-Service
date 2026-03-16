@@ -8,10 +8,15 @@ export class GenerateMonthlyTimesheetDto {
 
   @ApiProperty({ example: 3, description: 'Month (1-12)' })
   @IsNumber()
-  @Min(1) @Max(12)
+  @Min(1)
+  @Max(12)
   month: number;
 
   @ApiProperty({ example: 2026, description: 'Year' })
   @IsNumber()
   year: number;
+
+  @ApiProperty({ example: 2026, description: '123123' })
+  @IsString()
+  employeeId?: string;
 }

@@ -1,5 +1,12 @@
 import { ObjectType, Field, ID, Float, Int } from '@nestjs/graphql';
-import { Entity, Column, Index, ManyToOne, JoinColumn, OneToMany } from 'typeorm';
+import {
+  Entity,
+  Column,
+  Index,
+  ManyToOne,
+  JoinColumn,
+  OneToMany,
+} from 'typeorm';
 import { BaseEntity } from '../../../database/entities/base.entity';
 import { Employee } from '../../master-data/entities/employee.entity';
 import { AttendanceDailyPunch } from './attendance-daily-punch.entity';
@@ -139,6 +146,10 @@ export class AttendanceDailyTimesheet extends BaseEntity {
   @Column({ default: false })
   is_redundant: boolean;
 
+  @Field()
+  @Column({ type: 'float', default: 0 })
+  work_hours_redundant: number;
+
   @Field(() => Float)
   @Column({ type: 'decimal', precision: 6, scale: 2, default: 0 })
   adjustment_hours: number;
@@ -166,16 +177,16 @@ export class AttendanceDailyTimesheet extends BaseEntity {
 
   // --- Relationships ---
   @Field(() => Company)
-  @ManyToOne(() => Company, company => company.attendanceTimesheets)
+  @ManyToOne(() => Company, (company) => company.attendanceTimesheets)
   @JoinColumn({ name: 'company_id' })
   company: Company;
 
   @Field(() => Employee)
-  @ManyToOne(() => Employee, employee => employee.attendanceTimesheets)
+  @ManyToOne(() => Employee, (employee) => employee.attendanceTimesheets)
   @JoinColumn({ name: 'employee_id' })
   employee: Employee;
 
-  @OneToMany(() => AttendanceDailyPunch, punch => punch.daily_timesheet)
+  @OneToMany(() => AttendanceDailyPunch, (punch) => punch.daily_timesheet)
   punches: AttendanceDailyPunch[];
 
   // Trong AttendanceDailyTimesheet

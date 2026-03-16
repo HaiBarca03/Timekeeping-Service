@@ -8,7 +8,7 @@ import { AttendanceDailyPunch } from './entities/attendance-daily-punch.entity';
 import { AttendanceDailyTimesheet } from './entities/attendance-daily-timesheet.entity';
 import { AttendanceMonthSetting } from './entities/attendance-month-setting.entity';
 import { AttendanceMonthlyTimesheet } from './entities/attendance-monthly-timesheet.entity';
-import { Employee } from '../master-data/entities/employee.entity'; 
+import { Employee } from '../master-data/entities/employee.entity';
 import { AttendanceService } from './attendance.service';
 import { AttendanceEngineModule } from './engine/attendance-engine.module';
 import { BullModule } from '@nestjs/bullmq';
@@ -27,14 +27,11 @@ import { AttendanceController } from './attendance.controller';
     ]),
     forwardRef(() => AttendanceEngineModule),
     BullModule.registerQueue({
-      name: QUEUE_NAMES.ATTENDANCE,
+      name: QUEUE_NAMES.CALCULATE_DAILY,
     }),
   ],
   controllers: [AttendanceController],
-  providers: [
-    AttendanceService,
-    AttendanceResolver,
-  ],
-  exports: [AttendanceEngineModule, TypeOrmModule]
+  providers: [AttendanceService, AttendanceResolver],
+  exports: [AttendanceEngineModule, TypeOrmModule],
 })
 export class AttendanceModule {}

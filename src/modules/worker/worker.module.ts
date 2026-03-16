@@ -17,14 +17,14 @@ import { CalculateDailyProcessor } from './processor/calculate-daily.processor';
     ConfigModule.forRoot({
       isGlobal: true,
     }),
-    DatabaseModule,    
-    MasterDataModule,      // Company
-    AttendanceModule,   
-    TypeOrmModule.forFeature([AttendancePunchRecord]),  
-    RedisModule,   
-    BullModule.registerQueue({
-      name: QUEUE_NAMES.ATTENDANCE,
-    }),
+    DatabaseModule,
+    MasterDataModule, // Company
+    AttendanceModule,
+    TypeOrmModule.forFeature([AttendancePunchRecord]),
+    RedisModule,
+    // BullModule.registerQueue({
+    //   name: QUEUE_NAMES.ATTENDANCE,
+    // }),
     BullModule.registerQueue({
       name: QUEUE_NAMES.CALCULATE_DAILY,
     }),

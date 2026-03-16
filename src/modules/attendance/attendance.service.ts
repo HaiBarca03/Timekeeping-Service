@@ -11,6 +11,7 @@ import { JOB_NAMES, QUEUE_NAMES } from 'src/constants';
 import { Queue } from 'bullmq';
 import { Employee } from '../master-data/entities/employee.entity';
 import { AttendanceMonthlyTimesheet } from './entities/attendance-monthly-timesheet.entity';
+import { format } from 'date-fns';
 
 @Injectable()
 export class AttendanceService {
@@ -29,11 +30,13 @@ export class AttendanceService {
     @InjectRepository(Employee)
     private employeeRepo: Repository<Employee>,
 
-    @InjectQueue(QUEUE_NAMES.ATTENDANCE) 
+    @InjectQueue(QUEUE_NAMES.CALCULATE_DAILY)
     private attendanceQueue: Queue,
   ) {}
 
-  async processBatchPunches(inputs: RawPunchInput[]): Promise<BatchPunchResult> {
+  async processBatchPunches(
+    inputs: RawPunchInput[],
+  ): Promise<BatchPunchResult> {
     if (!inputs.length) {
       return {
         savedCount: 0,
@@ -44,7 +47,7 @@ export class AttendanceService {
     // console.log('inputs',inputs)
     const companyId = inputs[0].company_id;
 
-    const externalIds = [...new Set(inputs.map(i => i.external_user_id))];
+    const externalIds = [...new Set(inputs.map((i) => i.external_user_id))];
 
     const employees = await this.employeeRepo.find({
       where: {
@@ -54,12 +57,10 @@ export class AttendanceService {
       select: ['id', 'userId'],
     });
 
-    const employeeMap = new Map(
-      employees.map(e => [e.userId, e.id])
-    );
+    const employeeMap = new Map(employees.map((e) => [e.userId, e.id]));
 
     const validEntities = inputs
-      .map(input => {
+      .map((input) => {
         const employeeId = employeeMap.get(input.external_user_id);
 
         if (!employeeId) {
@@ -72,9 +73,7 @@ export class AttendanceService {
           employee_id: employeeId,
         });
       })
-      .filter(
-        (entity): entity is AttendancePunchRecord => entity !== null
-      );
+      .filter((entity): entity is AttendancePunchRecord => entity !== null);
 
     if (!validEntities.length) {
       return {
@@ -85,27 +84,38 @@ export class AttendanceService {
     }
 
     const result = await this.punchRecordRepo.insert(validEntities);
-    const savedIds = result.identifiers.map(id => id.id);
+    const savedIds = result.identifiers.map((id) => id.id);
 
-    const calculationJobs = validEntities.map(entity => ({
-      employee_id: entity.employee_id,
-      date: new Date(entity.punch_time).toISOString().split('T')[0],
-    }));
+    const jobMap = new Map<string, { employee_id: string; date: string }>();
 
-    const uniqueJobs = Array.from(
-      new Set(calculationJobs.map(j => JSON.stringify(j)))
-    ).map(s => JSON.parse(s));
+    for (const entity of validEntities) {
+      const punchDate = new Date(entity.punch_time);
+      const dateKey = punchDate.toISOString().slice(0, 10); // yyyy-mm-dd
 
-    await this.attendanceQueue.addBulk(
-      uniqueJobs.map(job => ({
-        name: JOB_NAMES.CALCULATE_DAILY,
-        data: job,
-        opts: {
-          removeOnComplete: true,
-          jobId: `calc-${job.employee_id}-${job.date}`,
-        },
-      }))
-    );
+      const key = `${entity.employee_id}-${dateKey}`;
+
+      if (!jobMap.has(key)) {
+        jobMap.set(key, {
+          employee_id: entity.employee_id,
+          date: dateKey,
+        });
+      }
+    }
+
+    const uniqueJobs = Array.from(jobMap.values());
+
+    if (uniqueJobs.length) {
+      await this.attendanceQueue.addBulk(
+        uniqueJobs.map((job) => ({
+          name: JOB_NAMES.CALCULATE_DAILY,
+          data: job,
+          opts: {
+            removeOnComplete: true,
+            jobId: `calc-${job.employee_id}-${job.date}`,
+          },
+        })),
+      );
+    }
 
     return {
       savedCount: savedIds.length,
@@ -114,11 +124,17 @@ export class AttendanceService {
     };
   }
 
-  async calculateDailyTimesheet(employeeId: string, date: Date): Promise<AttendanceDailyTimesheet> {
+  async calculateDailyTimesheet(
+    employeeId: string,
+    date: Date,
+  ): Promise<AttendanceDailyTimesheet> {
     return this.attendanceEngine.calculateDailyForEmployee(employeeId, date);
   }
 
-  async calculateBatchDailyTimesheets(employeeIds: string[], date: Date): Promise<void> {
+  async calculateBatchDailyTimesheets(
+    employeeIds: string[],
+    date: Date,
+  ): Promise<void> {
     for (const id of employeeIds) {
       try {
         await this.attendanceEngine.calculateDailyForEmployee(id, date);
@@ -129,106 +145,131 @@ export class AttendanceService {
     }
   }
 
-  async getTimesheetByDate(companyId: string, date: Date) {
-    return this.timesheetRepo
-      .createQueryBuilder('t')
-      .leftJoin('t.employee', 'e')
-      .select('t') 
-      .addSelect([
-        'e.id',
-        'e.userId',
-        'e.userName',
-        'e.fullName',
-        'e.larkId',
-        'e.email',
-        'e.phoneNumber',
-      ])
-      .where('t.company_id = :companyId', { companyId })
-      .andWhere('t.attendance_date = :date', { date })
-      .orderBy('t.employee_id', 'ASC')
-      .getMany();
+  async getTimesheetByDate(companyId: string, date: string) {
+    try {
+      const attendanceDate = new Date(date);
+
+      const timesheets = await this.timesheetRepo
+        .createQueryBuilder('timesheet')
+        .leftJoinAndSelect('timesheet.employee', 'employee')
+        .leftJoinAndSelect('timesheet.punches', 'punches')
+        .leftJoinAndSelect('timesheet.requests', 'requests')
+        .where('timesheet.company_id = :companyId', { companyId })
+        .andWhere('timesheet.attendance_date = :attendanceDate', {
+          attendanceDate,
+        })
+        .orderBy('employee.fullName', 'ASC')
+        .getMany();
+
+      return timesheets;
+    } catch (error) {
+      console.error('❌ getTimesheetByDate ERROR:', error);
+      throw error;
+    }
   }
-  async getTimesheetByMonth(companyId: string, month: number, year: number) {
-    return this.timesheetRepo.find({
-      where: {
-        company_id: companyId,
-        month,
-        year,
-      },
+
+  async getMonthlyTimesheet(
+    companyId: string,
+    month: number,
+    year: number,
+    employeeId?: string,
+  ) {
+    const where: any = {
+      company_id: companyId,
+      month,
+      year,
+    };
+
+    if (employeeId) {
+      where.employee_id = employeeId;
+    }
+
+    return this.monthlyRepo.find({
+      where,
       relations: ['employee'],
       order: {
-        attendance_date: 'ASC',
+        employee_id: 'ASC',
       },
     });
   }
 
-async generateMonthlyTimesheet(
-  companyId: string,
-  month: number,
-  year: number,
-) {
-  // Quan trọng: Kiểm tra đầu vào
-  console.log(`Params: Company=${companyId}, Month=${month}, Year=${year}`);
+  async generateMonthlyTimesheet(
+    companyId: string,
+    month: number,
+    year: number,
+    employeeId?: string,
+  ) {
+    const query = this.timesheetRepo
+      .createQueryBuilder('d')
+      .select('d.employee_id', 'employee_id')
 
-  const query = this.timesheetRepo
-    .createQueryBuilder('d')
-    .select('d.employee_id', 'employee_id')
-    .addSelect('SUM(CASE WHEN d.actual_work_hours > 0 THEN 1 ELSE 0 END)', 'total_work_days')
-    .addSelect('SUM(CAST(d.actual_work_hours AS DECIMAL))', 'total_work_hours')
-    .addSelect('SUM(CAST(d.total_work_hours_standard AS DECIMAL))', 'total_standard_hours')
-    .addSelect('SUM(CASE WHEN d.is_late = true THEN 1 ELSE 0 END)', 'total_late_days')
-    .addSelect('SUM(d.late_minutes)', 'total_late_minutes')
-    .addSelect('SUM(d.early_leave_minutes)', 'total_early_leave_minutes')
-    .addSelect('SUM(CASE WHEN d.missing_check_in = true OR d.missing_check_out = true THEN 1 ELSE 0 END)', 'total_missing_check')
-    .addSelect('SUM(CAST(d.ot_hours AS DECIMAL))', 'total_ot_hours')
-    .addSelect('SUM(CAST(d.leave_hours AS DECIMAL))', 'total_leave_hours')
-    .addSelect('SUM(CASE WHEN d.is_remote = true THEN CAST(d.remote_hours AS DECIMAL) ELSE 0 END) / 8', 'total_remote_days')
-    .addSelect('SUM(CAST(d.adjustment_hours AS DECIMAL))', 'total_adjustment_hours')
-    
-    // Sửa Where: Dùng ép kiểu thực tế của Postgres
-    .where('d.company_id = :companyId', { companyId: companyId }) 
-    .andWhere('d.month = :month', { month: Number(month) })
-    .andWhere('d.year = :year', { year: Number(year) })
-    .groupBy('d.employee_id');
+      .addSelect(
+        'SUM(d.actual_work_hours / NULLIF(d.total_work_hours_standard,0))',
+        'total_work_days',
+      )
 
-  const rows = await query.getRawMany();
+      .addSelect('SUM(d.actual_work_hours)', 'total_work_hours')
 
-  if (!rows || rows.length === 0) {
-    // Nếu vẫn ra [], hãy in câu SQL thực tế ra để chạy thử trên DB
-    console.log("SQL Query:", query.getSql());
-    return [];
+      .addSelect('SUM(d.late_minutes)', 'total_late_minutes')
+
+      .addSelect(
+        'SUM(CASE WHEN d.is_late = true THEN 1 ELSE 0 END)',
+        'total_late_days',
+      )
+
+      .addSelect(
+        'SUM(CASE WHEN d.is_early_leave = true THEN 1 ELSE 0 END)',
+        'total_early_leave_days',
+      )
+
+      .addSelect('SUM(d.early_leave_minutes)', 'total_early_leave_minutes')
+
+      .addSelect(
+        'SUM(CASE WHEN d.missing_check_in OR d.missing_check_out THEN 1 ELSE 0 END)',
+        'total_missing_check',
+      )
+
+      .addSelect('SUM(d.ot_hours)', 'total_ot_hours')
+
+      .addSelect('SUM(d.leave_hours / 8)', 'total_leave_days')
+
+      .addSelect('SUM(d.remote_hours / 8)', 'total_remote_days')
+
+      .where('d.company_id = :companyId', { companyId })
+      .andWhere('d.month = :month', { month })
+      .andWhere('d.year = :year', { year })
+      .groupBy('d.employee_id');
+
+    if (employeeId) {
+      query.andWhere('d.employee_id = :employeeId', { employeeId });
+    }
+
+    const stats = await query.getRawMany();
+
+    if (!stats.length) return [];
+
+    const records = stats.map((s) => ({
+      company_id: companyId,
+      employee_id: s.employee_id,
+      month,
+      year,
+      total_work_days: parseFloat(s.total_work_days || 0),
+      total_work_hours: parseFloat(s.total_work_hours || 0),
+      total_late_minutes: Number(s.total_late_minutes || 0),
+      total_late_days: Number(s.total_late_days || 0),
+      total_early_leave_minutes: Number(s.total_early_leave_minutes || 0),
+      total_missing_check: Number(s.total_missing_check || 0),
+      total_ot_hours: parseFloat(s.total_ot_hours || 0),
+      total_leave_days: parseFloat(s.total_leave_days || 0),
+      total_remote_days: parseFloat(s.total_remote_days || 0),
+      last_sync_at: new Date(),
+      confirmation_status: 'pending',
+    }));
+
+    await this.monthlyRepo.upsert(records, {
+      conflictPaths: ['employee_id', 'company_id', 'month', 'year'],
+    });
+
+    return records;
   }
-
-  // 2. Map dữ liệu (Sử dụng chuẩn xác kiểu dữ liệu)
-  const records = rows.map(r => ({
-    company_id: companyId,
-    employee_id: r.employee_id.toString(), // Đảm bảo ID là string
-    month: Number(month),
-    year: Number(year),
-    total_work_days: Number(r.total_work_days || 0),
-    total_work_hours: parseFloat(r.total_work_hours || 0),
-    total_standard_hours: parseFloat(r.total_standard_hours || 0),
-    total_late_days: Number(r.total_late_days || 0),
-    total_late_minutes: Number(r.total_late_minutes || 0),
-    total_early_leave_minutes: Number(r.total_early_leave_minutes || 0),
-    total_missing_check: Number(r.total_missing_check || 0),
-    total_ot_hours: parseFloat(r.total_ot_hours || 0),
-    total_leave_hours: parseFloat(r.total_leave_hours || 0),
-    total_leave_days: parseFloat(r.total_leave_hours || 0) / 8,
-    total_remote_days: parseFloat(r.total_remote_days || 0),
-    total_adjustment_hours: parseFloat(r.total_adjustment_hours || 0),
-    confirmation_status: 'pending'
-  }));
-
-  // 3. Insert/Upsert (Dùng save để TypeORM tự xử lý Mapping nếu upsert lỗi)
-  // Lưu ý: records bây giờ là mảng các object thuần
-  try {
-    // Xóa dữ liệu cũ trước để tránh lỗi Duplicate Key Index
-    await this.monthlyRepo.delete({ company_id: companyId, month, year });
-    return await this.monthlyRepo.save(records);
-  } catch (error) {
-    console.error("Insert error:", error);
-    throw error;
-  }
-}
 }

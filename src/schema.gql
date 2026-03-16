@@ -36,6 +36,7 @@ type AttendanceDailyTimesheet {
   rest_minutes: Int!
   total_work_hours_standard: Float!
   weekday: Int!
+  work_hours_redundant: Float!
   work_minutes: Int!
   year: Float!
 }
@@ -69,20 +70,18 @@ type AttendanceMonthSetting {
 type AttendanceMonthlyTimesheet {
   company: Company!
   company_id: ID!
-  confirmation_status: String
-  employee: Employee!
+  confirmation_status: String!
   employee_id: ID!
+  last_sync_at: DateTime
   month: Int!
-  total_adjustment_hours: Float!
   total_early_leave_minutes: Int!
   total_late_days: Int!
   total_late_minutes: Int!
   total_leave_days: Float!
-  total_leave_hours: Float!
   total_missing_check: Int!
   total_ot_hours: Float!
+  total_paid_days: Float!
   total_remote_days: Float!
-  total_standard_hours: Float!
   total_work_days: Float!
   total_work_hours: Float!
   year: Int!

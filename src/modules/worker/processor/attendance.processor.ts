@@ -4,7 +4,8 @@ import { AttendanceEngine } from '../../attendance/engine/attendance.engine';
 import { JOB_NAMES, QUEUE_NAMES } from 'src/constants/queue.constants';
 import { Logger } from '@nestjs/common';
 
-@Processor(QUEUE_NAMES.ATTENDANCE)
+// @Processor(QUEUE_NAMES.ATTENDANCE)
+@Processor(QUEUE_NAMES.CALCULATE_DAILY)
 export class AttendanceProcessor extends WorkerHost {
   private readonly logger = new Logger(AttendanceProcessor.name); // Thêm logger
 
@@ -19,9 +20,7 @@ export class AttendanceProcessor extends WorkerHost {
       case JOB_NAMES.CALCULATE_DAILY: {
         const { employee_id, date } = job.data;
 
-        this.logger.log(
-          `Processing employee=${employee_id}, date=${date}`,
-        );
+        this.logger.log(`Processing employee=${employee_id}, date=${date}`);
 
         await this.attendanceEngine.calculateDailyForEmployee(
           employee_id,

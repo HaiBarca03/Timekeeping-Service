@@ -39,8 +39,10 @@ export class AttendanceEngine {
     private leaveStrategy: LeaveStrategy,
   ) {}
 
-  async calculateDailyForEmployee(employeeId: string, date: Date): Promise<AttendanceDailyTimesheet> {
-
+  async calculateDailyForEmployee(
+    employeeId: string,
+    date: Date,
+  ): Promise<AttendanceDailyTimesheet> {
     this.logger.debug(`================ ENGINE START ================`);
     this.logger.debug(`EmployeeId: ${employeeId}`);
     this.logger.debug(`Date: ${date.toISOString()}`);
@@ -48,15 +50,21 @@ export class AttendanceEngine {
     const employee = await this.getEmployee(employeeId);
 
     this.logger.debug(`Employee loaded`);
-    this.logger.debug(JSON.stringify({
-      id: employee.id,
-      company: employee.company?.companyName,
-      attendanceGroup: employee.attendanceGroup?.groupName,
-      employeeType: employee.employeeType?.typeName
-    }, null, 2));
+    this.logger.debug(
+      JSON.stringify(
+        {
+          id: employee.id,
+          company: employee.company?.companyName,
+          attendanceGroup: employee.attendanceGroup?.groupName,
+          employeeType: employee.employeeType?.typeName,
+        },
+        null,
+        2,
+      ),
+    );
 
     const context = new CalculationContext(employee, date);
-    
+
     context.attendanceGroupCode = context.employee.attendanceGroup?.code;
     // ===== SHIFT RESOLVE =====
     context.shiftContext = await this.shiftResolver.resolveShift(context);
@@ -68,16 +76,12 @@ export class AttendanceEngine {
     this.logger.debug(`STEP 1: PUNCH PROCESSING START`);
 
     if (context.employee.attendanceGroup?.code === 'STORE_GROUP') {
-
       this.logger.debug(`STORE GROUP DETECTED`);
 
       const rawPunches = await this.punchStrategy.getRawPunches(context);
       this.storePunchStrategy.process(context, rawPunches);
-
     } else {
-
       await this.punchStrategy.process(context);
-    
     }
 
     this.logger.debug(`STEP 1 RESULT - PUNCHES`);
@@ -97,12 +101,18 @@ export class AttendanceEngine {
     // this.lateEarlyStrategy.process(context);
 
     this.logger.debug(`STEP 3 RESULT`);
-    this.logger.debug(JSON.stringify({
-      totalLateMinutes: context.totalLateMinutes,
-      totalEarlyMinutes: context.totalEarlyMinutes,
-      latePenalty: context.latePenalty,
-      earlyPenalty: context.earlyPenalty
-    }, null, 2));
+    this.logger.debug(
+      JSON.stringify(
+        {
+          totalLateMinutes: context.totalLateMinutes,
+          totalEarlyMinutes: context.totalEarlyMinutes,
+          latePenalty: context.latePenalty,
+          earlyPenalty: context.earlyPenalty,
+        },
+        null,
+        2,
+      ),
+    );
 
     this.logger.debug(`STEP 4.5: REMOTE WORK STRATEGY START`);
     await this.remoteStrategy.process(context);
@@ -118,9 +128,15 @@ export class AttendanceEngine {
     this.workdayStrategy.process(context);
 
     this.logger.debug(`STEP 4 RESULT`);
-    this.logger.debug(JSON.stringify({
-      totalWorkedHours: context.totalWorkedHours
-    }, null, 2));
+    this.logger.debug(
+      JSON.stringify(
+        {
+          totalWorkedHours: context.totalWorkedHours,
+        },
+        null,
+        2,
+      ),
+    );
 
     // ===== SAVE =====
     this.logger.debug(`STEP 5: SAVE TIMESHEET`);
@@ -136,13 +152,15 @@ export class AttendanceEngine {
 
   // Hàm phụ để phục vụ log debug
   private calculateRawMinutes(context: CalculationContext): number {
-      let mins = 0;
-      context.punches.forEach(p => {
-          if (p.check_in_time && p.check_out_time) {
-              mins += (p.check_out_time.getTime() - p.check_in_time.getTime()) / (1000 * 60);
-          }
-      });
-      return mins;
+    let mins = 0;
+    context.punches.forEach((p) => {
+      if (p.check_in_time && p.check_out_time) {
+        mins +=
+          (p.check_out_time.getTime() - p.check_in_time.getTime()) /
+          (1000 * 60);
+      }
+    });
+    return mins;
   }
 
   private async getEmployee(id: string): Promise<Employee> {
@@ -155,7 +173,7 @@ export class AttendanceEngine {
         'attendanceGroup.defaultShift.restRules',
         'attendanceMethod',
         'employeeType',
-        'jobLevel'
+        'jobLevel',
       ],
     });
 
@@ -166,83 +184,123 @@ export class AttendanceEngine {
     return employee;
   }
 
-  private async saveOrUpdateTimesheet(context: CalculationContext): Promise<AttendanceDailyTimesheet> {
-      let timesheet = await this.timesheetRepo.findOne({
-          where: {
-              employee_id: context.employee.id,
-              attendance_date: context.date,
-          },
-      }) || new AttendanceDailyTimesheet();
+  private async saveOrUpdateTimesheet(
+    context: CalculationContext,
+  ): Promise<AttendanceDailyTimesheet> {
+    let timesheet =
+      (await this.timesheetRepo.findOne({
+        where: {
+          employee_id: context.employee.id,
+          attendance_date: context.date,
+        },
+      })) || new AttendanceDailyTimesheet();
 
-      // --- 1. Thông tin định danh ---
-      timesheet.company_id = context.companyId;
-      timesheet.employee_id = context.employee.id;
-      timesheet.attendance_date = context.date;
-      timesheet.weekday = context.date.getDay(); 
-      timesheet.month = context.date.getMonth() + 1;
-      timesheet.year = context.date.getFullYear();
-      
-      // SỬA LỖI: Chấp nhận string | null
-      timesheet.shift_id = context.shiftContext?.shift?.id ?? undefined;
+    // --- 1. Thông tin định danh ---
+    timesheet.company_id = context.companyId;
+    timesheet.employee_id = context.employee.id;
+    timesheet.attendance_date = context.date;
+    timesheet.weekday = context.date.getDay();
+    timesheet.month = context.date.getMonth() + 1;
+    timesheet.year = context.date.getFullYear();
 
-      // --- 2. Dữ liệu Check-in/out ---
-      const primaryPunch = context.punches && context.punches.length > 0 ? context.punches[0] : null;
-      timesheet.is_configured_off_day = context.isConfiguredOffDay || false;
-      
-      timesheet.check_in_raw = primaryPunch?.check_in_time ?? null;
-      timesheet.check_out_raw = primaryPunch?.check_out_time ?? null;
-      timesheet.check_in_actual = primaryPunch?.check_in_time ?? null; 
-      timesheet.check_out_actual = primaryPunch?.check_out_time ?? null;
+    // SỬA LỖI: Chấp nhận string | null
+    timesheet.shift_id = context.shiftContext?.shift?.id ?? undefined;
 
-      timesheet.check_in_result = primaryPunch?.miss_check_in ? 'Lack' : (context.totalLateMinutes > 0 ? 'Late' : 'InTime');
-      timesheet.check_out_result = primaryPunch?.miss_check_out ? 'Lack' : (context.totalEarlyMinutes > 0 ? 'Early' : 'OutTime');
+    // --- 2. Dữ liệu Check-in/out ---
+    const primaryPunch =
+      context.punches && context.punches.length > 0 ? context.punches[0] : null;
+    timesheet.is_configured_off_day = context.isConfiguredOffDay || false;
 
-      // --- 3. Chỉ số tính toán ---
-      timesheet.late_minutes = context.totalLateMinutes;
-      timesheet.early_leave_minutes = context.totalEarlyMinutes;
-      timesheet.work_minutes = Math.round(context.totalWorkedHours * 60);
-      timesheet.actual_work_hours = context.totalWorkedHours;
-      timesheet.total_work_hours_standard = context.shiftContext?.getStandardWorkHours() || 8;
-      
-      timesheet.rest_minutes = context.shiftContext?.restRules?.reduce((sum, r) => sum + 60, 0) || 0; 
+    timesheet.check_in_raw = primaryPunch?.check_in_time ?? null;
+    timesheet.check_out_raw = primaryPunch?.check_out_time ?? null;
+    timesheet.check_in_actual = primaryPunch?.check_in_time ?? null;
+    timesheet.check_out_actual = primaryPunch?.check_out_time ?? null;
 
-      // --- 4. Trạng thái vi phạm & Đơn từ ---
-      timesheet.missing_check_in = !!primaryPunch?.miss_check_in;
-      timesheet.missing_check_out = !!primaryPunch?.miss_check_out;
-      timesheet.is_late = context.totalLateMinutes > 0;
-      timesheet.is_early_leave = context.totalEarlyMinutes > 0;
-      
-      // SỬA LỖI: Đảm bảo context.leaveHours đã được định nghĩa trong DTO
-      timesheet.is_leave = (context.leaveHours ?? 0) > 0;
-      timesheet.leave_hours = context.leaveHours ?? 0;
-      
-      timesheet.is_remote = (context.onlineValue + context.businessTripValue) > 0;
-      timesheet.remote_hours = (context.onlineValue + context.businessTripValue) * timesheet.total_work_hours_standard;
-      
-      timesheet.is_ot = (context.overtimeMinutes ?? 0) > 0;
-      timesheet.ot_hours = (context.overtimeMinutes ?? 0) / 60; // Giờ OT thực tế
-      // timesheet.ot_minutes = context.overtimeMinutes;
-      
-      const currentWorkday = context.finalActualWorkday ?? 0;
+    timesheet.check_in_result = primaryPunch?.miss_check_in
+      ? 'Lack'
+      : context.totalLateMinutes > 0
+        ? 'Late'
+        : 'InTime';
+    timesheet.check_out_result = primaryPunch?.miss_check_out
+      ? 'Lack'
+      : context.totalEarlyMinutes > 0
+        ? 'Early'
+        : 'OutTime';
 
-      if (currentWorkday >= 1) timesheet.attendance_status = 'Full';
-      else if (currentWorkday > 0) timesheet.attendance_status = 'Partial';
-      else timesheet.attendance_status = 'Lack';
+    // --- 3. Chỉ số tính toán ---
+    timesheet.late_minutes = context.totalLateMinutes;
+    timesheet.early_leave_minutes = context.totalEarlyMinutes;
+    timesheet.work_minutes = Math.round(context.totalWorkedHours * 60);
+    timesheet.actual_work_hours = context.totalWorkedHours;
 
-      // --- 5. Meta ---
-      timesheet.calculation_version = "v1.0.2";
-      timesheet.calculated_at = new Date();
-      timesheet.is_recalculated = true;
+    if (context.attendanceGroupCode === 'STORE_GROUP') {
+      const standardHours = context.shiftContext?.getStandardWorkHours() || 8;
 
-      // Nếu Entity thực sự không có actual_workday, hãy xóa dòng này hoặc thêm vào Entity
-      // timesheet.actual_workday = currentWorkday; 
-      this.logger.debug(JSON.stringify({
-        employee: context.employee.id,
-        date: context.date,
-        late: context.totalLateMinutes,
-        early: context.totalEarlyMinutes,
-        workHours: context.totalWorkedHours
-      }, null, 2));
-      return await this.timesheetRepo.save(timesheet);
+      if (context.totalWorkedHours > standardHours) {
+        timesheet.is_redundant = true;
+        timesheet.work_hours_redundant =
+          context.totalWorkedHours - standardHours;
+
+        this.logger.debug(
+          `REDUNDANT WORK DETECTED → ${timesheet.work_hours_redundant} hours`,
+        );
+      } else {
+        timesheet.is_redundant = false;
+        timesheet.work_hours_redundant = 0;
+      }
+    }
+
+    timesheet.total_work_hours_standard =
+      context.shiftContext?.getStandardWorkHours() || 8;
+
+    timesheet.rest_minutes =
+      context.shiftContext?.restRules?.reduce((sum, r) => sum + 60, 0) || 0;
+
+    // --- 4. Trạng thái vi phạm & Đơn từ ---
+    timesheet.missing_check_in = !!primaryPunch?.miss_check_in;
+    timesheet.missing_check_out = !!primaryPunch?.miss_check_out;
+    timesheet.is_late = context.totalLateMinutes > 0;
+    timesheet.is_early_leave = context.totalEarlyMinutes > 0;
+
+    // SỬA LỖI: Đảm bảo context.leaveHours đã được định nghĩa trong DTO
+    timesheet.is_leave = (context.leaveHours ?? 0) > 0;
+    timesheet.leave_hours = context.leaveHours ?? 0;
+
+    timesheet.is_remote = context.onlineValue + context.businessTripValue > 0;
+    timesheet.remote_hours =
+      (context.onlineValue + context.businessTripValue) *
+      timesheet.total_work_hours_standard;
+
+    timesheet.is_ot = (context.overtimeMinutes ?? 0) > 0;
+    timesheet.ot_hours = (context.overtimeMinutes ?? 0) / 60; // Giờ OT thực tế
+    // timesheet.ot_minutes = context.overtimeMinutes;
+
+    const currentWorkday = context.finalActualWorkday ?? 0;
+
+    if (currentWorkday >= 1) timesheet.attendance_status = 'Full';
+    else if (currentWorkday > 0) timesheet.attendance_status = 'Partial';
+    else timesheet.attendance_status = 'Lack';
+
+    // --- 5. Meta ---
+    timesheet.calculation_version = 'v1.0.2';
+    timesheet.calculated_at = new Date();
+    timesheet.is_recalculated = true;
+
+    // Nếu Entity thực sự không có actual_workday, hãy xóa dòng này hoặc thêm vào Entity
+    // timesheet.actual_workday = currentWorkday;
+    this.logger.debug(
+      JSON.stringify(
+        {
+          employee: context.employee.id,
+          date: context.date,
+          late: context.totalLateMinutes,
+          early: context.totalEarlyMinutes,
+          workHours: context.totalWorkedHours,
+        },
+        null,
+        2,
+      ),
+    );
+    return await this.timesheetRepo.save(timesheet);
   }
 }
