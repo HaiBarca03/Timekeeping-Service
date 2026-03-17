@@ -10,7 +10,7 @@ export interface LateEarlyRule {
   earlyPenalties: { threshold: number; penalty: number }[];
   missCheckInPenalty: number;
   missCheckOutPenalty: number;
-  ignoreForTypes?: EmployeeTypeCode[]; 
+  ignoreForTypes?: EmployeeTypeCode[];
 }
 
 @Injectable()
@@ -26,9 +26,7 @@ export class RuleFactoryService {
       latePenalties: [
         { threshold: 1, penalty: 1.0 }, // trễ >1p mất 1 công
       ],
-      earlyPenalties: [
-        { threshold: 30, penalty: 0.25 },
-      ],
+      earlyPenalties: [{ threshold: 30, penalty: 0.25 }],
       missCheckInPenalty: 1.0,
       missCheckOutPenalty: 0.5,
       ignoreForTypes: [EmployeeTypeCode.INTERN, EmployeeTypeCode.COLLABORATOR],
@@ -44,15 +42,6 @@ export class RuleFactoryService {
           { threshold: 45, penalty: 0.5 },
           { threshold: 90, penalty: 1.0 },
         ],
-      };
-    }
-
-    // Customize theo nhóm ca
-    if (groupName?.includes('hanhchinh')) {
-      return {
-        ...defaultRule,
-        allowedLateMinutes: 5,
-        allowedEarlyMinutes: 5,
       };
     }
 

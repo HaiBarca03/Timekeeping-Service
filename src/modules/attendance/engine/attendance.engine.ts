@@ -187,6 +187,8 @@ export class AttendanceEngine {
   private async saveOrUpdateTimesheet(
     context: CalculationContext,
   ): Promise<AttendanceDailyTimesheet> {
+    const groupCode = context.employee.attendanceGroup?.code;
+    const isMaternity = !!context.employee['is_maternity_shift'];
     let timesheet =
       (await this.timesheetRepo.findOne({
         where: {
@@ -205,6 +207,8 @@ export class AttendanceEngine {
 
     // SỬA LỖI: Chấp nhận string | null
     timesheet.shift_id = context.shiftContext?.shift?.id ?? undefined;
+
+    timesheet.is_saturday_candidate = context.isSaturdayCandidate || false;
 
     // --- 2. Dữ liệu Check-in/out ---
     const primaryPunch =
@@ -234,7 +238,14 @@ export class AttendanceEngine {
     timesheet.actual_work_hours = context.totalWorkedHours;
 
     if (context.attendanceGroupCode === 'STORE_GROUP') {
-      const standardHours = context.shiftContext?.getStandardWorkHours() || 8;
+      // const standardHours = context.shiftContext?.getStandardWorkHours() || 8;
+      const standardHours = context.shiftContext
+        ? context.shiftContext.getStandardWorkHours(isMaternity, groupCode)
+        : isMaternity && groupCode === 'STORE_GROUP'
+          ? 7
+          : 8;
+
+      timesheet.total_work_hours_standard = standardHours;
 
       if (context.totalWorkedHours > standardHours) {
         timesheet.is_redundant = true;

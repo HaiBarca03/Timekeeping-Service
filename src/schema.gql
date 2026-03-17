@@ -158,6 +158,7 @@ type Employee {
   fullName: String!
   gender: String
   is_angel: Boolean!
+  is_maternity_shift: Boolean!
   is_saturday_off: Boolean!
   jobLevel: JobLevel
   joinedAt: String

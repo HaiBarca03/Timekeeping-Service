@@ -1,6 +1,5 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { OvertimeRequest } from './entities/overtime-request.entity';
 import { TimesheetAdjustmentRequestItem } from './entities/timesheet-adjustment-request-item.entity';
 import { TimesheetAdjustmentRequest } from './entities/timesheet-adjustment-request.entity';
 import { LeaveManagementService } from './leave-management.service';
@@ -18,7 +17,6 @@ import { AttendanceRequest } from './entities/attendance-request.entity';
 @Module({
   imports: [
     TypeOrmModule.forFeature([
-      OvertimeRequest,
       TimesheetAdjustmentRequestItem,
       TimesheetAdjustmentRequest,
       Employee,

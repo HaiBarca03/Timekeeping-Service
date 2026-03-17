@@ -67,7 +67,13 @@ export class Employee extends BaseEntity {
   managerId: string;
 
   @Field(() => Float, { nullable: true })
-  @Column({ name: 'standard_workdays', type: 'decimal', precision: 6, scale: 2, nullable: true })
+  @Column({
+    name: 'standard_workdays',
+    type: 'decimal',
+    precision: 6,
+    scale: 2,
+    nullable: true,
+  })
   standardWorkdays: number;
 
   @Field(() => String, { nullable: true })
@@ -93,6 +99,10 @@ export class Employee extends BaseEntity {
   @Field()
   @Column({ default: false })
   is_angel: boolean;
+
+  @Field()
+  @Column({ default: false })
+  is_maternity_shift: boolean;
 
   /* Relations */
   @Field(() => Employee, { nullable: true })
@@ -159,7 +169,7 @@ export class Employee extends BaseEntity {
   @Field(() => [Department], { nullable: 'itemsAndList' })
   @ManyToMany(() => Department, (department) => department.employees)
   @JoinTable({
-    name: 'employee_departments', 
+    name: 'employee_departments',
     joinColumn: { name: 'employee_id', referencedColumnName: 'id' },
     inverseJoinColumn: { name: 'department_id', referencedColumnName: 'id' },
   })

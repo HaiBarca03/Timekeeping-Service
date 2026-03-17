@@ -175,6 +175,10 @@ export class AttendanceDailyTimesheet extends BaseEntity {
   @Column({ default: false })
   is_configured_off_day: boolean;
 
+  @Field()
+  @Column({ default: false })
+  is_saturday_candidate: boolean;
+
   // --- Relationships ---
   @Field(() => Company)
   @ManyToOne(() => Company, (company) => company.attendanceTimesheets)

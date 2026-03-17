@@ -1,6 +1,6 @@
-import { ShiftRestRule } from "src/modules/master-data/entities/shift-rest-rule.entity";
-import { Shift } from "src/modules/master-data/entities/shift.entity";
-import { ShiftAssignment } from "../../entities/shift-assignment.entity";
+import { ShiftRestRule } from 'src/modules/master-data/entities/shift-rest-rule.entity';
+import { Shift } from 'src/modules/master-data/entities/shift.entity';
+import { ShiftAssignment } from '../../entities/shift-assignment.entity';
 
 export class ShiftContext {
   shift?: Shift;
@@ -10,7 +10,6 @@ export class ShiftContext {
   assignments: ShiftAssignment[] = [];
 
   constructor(shift?: Shift, assignments?: ShiftAssignment[]) {
-
     if (shift) {
       this.shift = shift;
       this.restRules = shift.restRules || [];
@@ -25,11 +24,9 @@ export class ShiftContext {
         this.restRules = s?.restRules || [];
       }
     }
-
   }
 
   get rule() {
-
     // STORE SHIFT
     if (this.assignments.length > 0) {
       const a = this.assignments[0];
@@ -38,7 +35,7 @@ export class ShiftContext {
         onTime: a.onTime,
         offTime: a.offTime,
         allowLateMinutes: a.shift?.allowLateMinutes ?? 0,
-        allowEarlyMinutes: a.shift?.allowEarlyMinutes ?? 0
+        allowEarlyMinutes: a.shift?.allowEarlyMinutes ?? 0,
       };
     }
 
@@ -48,21 +45,32 @@ export class ShiftContext {
         onTime: this.shift.startTime,
         offTime: this.shift.endTime,
         allowLateMinutes: this.shift.allowLateMinutes,
-        allowEarlyMinutes: this.shift.allowEarlyMinutes
+        allowEarlyMinutes: this.shift.allowEarlyMinutes,
       };
     }
 
     return null;
   }
 
-  getStandardWorkHours(): number {
-    return this.shift?.shiftHours ?? 8;
+  getStandardWorkHours(
+    isMaternityShift: boolean = false,
+    groupCode?: string,
+  ): number {
+    let baseHours = this.shift?.shiftHours ?? 8;
+
+    // 2. Nếu là thai sản (is_maternity_shift = 1), giờ chuẩn giảm 1 tiếng
+    if (isMaternityShift && groupCode === 'STORE_GROUP') {
+      // Nếu là ca 8 tiếng thì chuẩn giảm còn 7
+      return baseHours > 0 ? baseHours - 1 : 0;
+    }
+
+    return baseHours;
   }
 
   isRestTime(time: string): boolean {
     const current = this.toMinutes(time);
 
-    return this.restRules.some(rest => {
+    return this.restRules.some((rest) => {
       if (!rest.restBeginTime || !rest.restEndTime) return false;
 
       const begin = this.toMinutes(rest.restBeginTime);

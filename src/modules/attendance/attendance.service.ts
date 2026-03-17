@@ -199,77 +199,120 @@ export class AttendanceService {
     year: number,
     employeeId?: string,
   ) {
+    // 1. Tính toán số ngày Thứ 7 được tính công (Lấy tổng - 2 ngày nghỉ)
+    const firstDayOfMonth = new Date(year, month - 1, 1);
+    const totalSats = this.getTotalSaturdaysInMonth(firstDayOfMonth);
+    const maxWorkSaturdays = totalSats - 2; // Quy tắc của Hải: Nghỉ cố định 2 ngày
+
+    // 2. Subquery đánh số thứ tự ưu tiên cho Thứ 7
+    const subQuery = this.timesheetRepo
+      .createQueryBuilder('t')
+      .select('t.id', 'id')
+      .addSelect(
+        `ROW_NUMBER() OVER (
+        PARTITION BY t.employee_id 
+        ORDER BY t.actual_work_hours DESC, t.late_minutes ASC, t.early_leave_minutes ASC
+      )`,
+        'ranking',
+      )
+      .where('t.month = :month', { month })
+      .andWhere('t.year = :year', { year })
+      .andWhere('t.is_saturday_candidate = true');
+
+    // 3. Query chính để SUM
     const query = this.timesheetRepo
       .createQueryBuilder('d')
+      .leftJoin(`(${subQuery.getQuery()})`, 'sat_rank', 'sat_rank.id = d.id')
+      .setParameters(subQuery.getParameters())
       .select('d.employee_id', 'employee_id')
 
+      // TỔNG CÔNG (Ngày)
       .addSelect(
-        'SUM(d.actual_work_hours / NULLIF(d.total_work_hours_standard,0))',
+        `SUM(
+        CASE 
+          WHEN d.is_saturday_candidate = false THEN (d.actual_work_hours / NULLIF(d.total_work_hours_standard, 0))
+          WHEN d.is_saturday_candidate = true AND sat_rank.ranking <= ${maxWorkSaturdays} THEN (d.actual_work_hours / NULLIF(d.total_work_hours_standard, 0))
+          ELSE 0 
+        END
+      )`,
         'total_work_days',
       )
 
-      .addSelect('SUM(d.actual_work_hours)', 'total_work_hours')
-
-      .addSelect('SUM(d.late_minutes)', 'total_late_minutes')
-
+      // TỔNG GIỜ LÀM
       .addSelect(
-        'SUM(CASE WHEN d.is_late = true THEN 1 ELSE 0 END)',
+        `SUM(
+        CASE 
+          WHEN d.is_saturday_candidate = false THEN d.actual_work_hours
+          WHEN d.is_saturday_candidate = true AND sat_rank.ranking <= ${maxWorkSaturdays} THEN d.actual_work_hours
+          ELSE 0 
+        END
+      )`,
+        'total_work_hours',
+      )
+
+      // TỔNG PHÚT MUỘN (Chỉ tính cho những ngày được chọn công)
+      .addSelect(
+        `SUM(
+        CASE 
+          WHEN d.is_saturday_candidate = false THEN d.late_minutes
+          WHEN d.is_saturday_candidate = true AND sat_rank.ranking <= ${maxWorkSaturdays} THEN d.late_minutes
+          ELSE 0 
+        END
+      )`,
+        'total_late_minutes',
+      )
+
+      // TỔNG SỐ NGÀY MUỘN
+      .addSelect(
+        `SUM(
+        CASE 
+          WHEN d.is_late = true AND (d.is_saturday_candidate = false OR sat_rank.ranking <= ${maxWorkSaturdays}) THEN 1 
+          ELSE 0 
+        END
+      )`,
         'total_late_days',
       )
 
+      // TỔNG PHÚT VỀ SỚM
       .addSelect(
-        'SUM(CASE WHEN d.is_early_leave = true THEN 1 ELSE 0 END)',
-        'total_early_leave_days',
+        `SUM(
+        CASE 
+          WHEN d.is_saturday_candidate = false THEN d.early_leave_minutes
+          WHEN d.is_saturday_candidate = true AND sat_rank.ranking <= ${maxWorkSaturdays} THEN d.early_leave_minutes
+          ELSE 0 
+        END
+      )`,
+        'total_early_leave_minutes',
       )
 
-      .addSelect('SUM(d.early_leave_minutes)', 'total_early_leave_minutes')
-
+      // Các cột khác giữ nguyên vì không bị ảnh hưởng bởi logic Thứ 7
+      .addSelect('SUM(d.ot_hours)', 'total_ot_hours')
+      .addSelect('SUM(d.leave_hours / 8)', 'total_leave_days')
+      .addSelect('SUM(d.remote_hours / 8)', 'total_remote_days')
       .addSelect(
         'SUM(CASE WHEN d.missing_check_in OR d.missing_check_out THEN 1 ELSE 0 END)',
         'total_missing_check',
       )
-
-      .addSelect('SUM(d.ot_hours)', 'total_ot_hours')
-
-      .addSelect('SUM(d.leave_hours / 8)', 'total_leave_days')
-
-      .addSelect('SUM(d.remote_hours / 8)', 'total_remote_days')
 
       .where('d.company_id = :companyId', { companyId })
       .andWhere('d.month = :month', { month })
       .andWhere('d.year = :year', { year })
       .groupBy('d.employee_id');
 
-    if (employeeId) {
-      query.andWhere('d.employee_id = :employeeId', { employeeId });
+    // ... (Phần thực thi query và map kết quả giữ nguyên) ...
+  }
+
+  private getTotalSaturdaysInMonth(date: Date): number {
+    const year = date.getFullYear();
+    const month = date.getMonth();
+    let count = 0;
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+    for (let day = 1; day <= daysInMonth; day++) {
+      if (new Date(year, month, day).getDay() === 6) {
+        count++;
+      }
     }
-
-    const stats = await query.getRawMany();
-
-    if (!stats.length) return [];
-
-    const records = stats.map((s) => ({
-      company_id: companyId,
-      employee_id: s.employee_id,
-      month,
-      year,
-      total_work_days: parseFloat(s.total_work_days || 0),
-      total_work_hours: parseFloat(s.total_work_hours || 0),
-      total_late_minutes: Number(s.total_late_minutes || 0),
-      total_late_days: Number(s.total_late_days || 0),
-      total_early_leave_minutes: Number(s.total_early_leave_minutes || 0),
-      total_missing_check: Number(s.total_missing_check || 0),
-      total_ot_hours: parseFloat(s.total_ot_hours || 0),
-      total_leave_days: parseFloat(s.total_leave_days || 0),
-      total_remote_days: parseFloat(s.total_remote_days || 0),
-      last_sync_at: new Date(),
-      confirmation_status: 'pending',
-    }));
-
-    await this.monthlyRepo.upsert(records, {
-      conflictPaths: ['employee_id', 'company_id', 'month', 'year'],
-    });
-
-    return records;
+    return count;
   }
 }

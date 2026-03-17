@@ -13,7 +13,6 @@ import { RemoteWorkStrategy } from './strategies/remote-work.strategy';
 import { WorkdayCalculationStrategy } from './strategies/workday-calculation.strategy';
 import { ShiftResolverService } from './services/shift-resolver.service';
 import { RuleFactoryService } from './services/rule-factory.service';
-import { OvertimeRequest } from 'src/modules/leave-management/entities/overtime-request.entity';
 import { Shift } from 'src/modules/master-data/entities/shift.entity';
 import { LeaveManagementModule } from 'src/modules/leave-management/leave-management.module';
 import { AttendanceMethod } from 'src/modules/master-data/entities/attendance-method.entity';
@@ -25,7 +24,6 @@ import { Holiday } from '../entities/holidays.entity';
 import { BreakTimeStrategy } from './strategies/break-time.strategy';
 import { LeavePolicyRule } from 'src/modules/master-data/entities/leave-policy-rule.entity';
 
-
 @Module({
   imports: [
     TypeOrmModule.forFeature([
@@ -36,9 +34,8 @@ import { LeavePolicyRule } from 'src/modules/master-data/entities/leave-policy-r
       Employee,
       Holiday,
       ShiftAssignment,
-      OvertimeRequest,
       LeavePolicyRule,
-      Shift
+      Shift,
     ]),
     forwardRef(() => LeaveManagementModule),
   ],
@@ -54,11 +51,8 @@ import { LeavePolicyRule } from 'src/modules/master-data/entities/leave-policy-r
     WorkdayCalculationStrategy,
     ShiftResolverService,
     RuleFactoryService,
-    AttendanceRecordService
+    AttendanceRecordService,
   ],
-  exports: [
-    AttendanceEngine, 
-    AttendanceRecordService
-  ],
+  exports: [AttendanceEngine, AttendanceRecordService],
 })
 export class AttendanceEngineModule {}

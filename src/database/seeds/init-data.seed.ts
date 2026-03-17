@@ -209,27 +209,21 @@ export const initDataSeed = async (dataSource: DataSource) => {
     },
   ]);
 
-  const khoiTech = await dataSource
-    .getRepository(Department)
-    .save({
-      companyId,
-      departmentName: 'Khối Công nghệ',
-      departmentCode: 'K_TECH',
-    });
-  const khoiSales = await dataSource
-    .getRepository(Department)
-    .save({
-      companyId,
-      departmentName: 'Khối Kinh doanh',
-      departmentCode: 'K_SALES',
-    });
-  const khoiOps = await dataSource
-    .getRepository(Department)
-    .save({
-      companyId,
-      departmentName: 'Khối Vận hành',
-      departmentCode: 'K_OPS',
-    });
+  const khoiTech = await dataSource.getRepository(Department).save({
+    companyId,
+    departmentName: 'Khối Công nghệ',
+    departmentCode: 'K_TECH',
+  });
+  const khoiSales = await dataSource.getRepository(Department).save({
+    companyId,
+    departmentName: 'Khối Kinh doanh',
+    departmentCode: 'K_SALES',
+  });
+  const khoiOps = await dataSource.getRepository(Department).save({
+    companyId,
+    departmentName: 'Khối Vận hành',
+    departmentCode: 'K_OPS',
+  });
 
   await dataSource.getRepository(Department).save([
     {
@@ -429,6 +423,7 @@ export const initDataSeed = async (dataSource: DataSource) => {
     const isProbation = i % 5 === 0;
     const isPartTime = i % 9 === 0;
     const is_saturday_off = i % 2 === 0;
+    const is_maternity_shift = i % 9 === 0;
     const is_angel = i % 2 === 0;
 
     const joinedAt = faker.date.past({ years: 4 });
@@ -468,6 +463,7 @@ export const initDataSeed = async (dataSource: DataSource) => {
       attendanceMethod: randomFromArray(attMethods),
       is_saturday_off: is_saturday_off,
       is_angel: is_angel,
+      is_maternity_shift: is_maternity_shift,
       leavePolicy: leavePolicy,
       standardWorkdays: 22,
       larkId: `lark_${10000 + i}`,
