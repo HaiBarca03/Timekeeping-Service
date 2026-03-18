@@ -16,13 +16,13 @@ export class AttendanceDailyPunch extends BaseEntity {
   @Column()
   punch_index: number;
 
-  @Field({ nullable: true })
+  @Field(() => Date, { nullable: true })
   @Column({ type: 'timestamp', nullable: true })
-  check_in_time: Date;
+  check_in_time?: Date | null; // Cho phép null ở TS
 
-  @Field({ nullable: true })
+  @Field(() => Date, { nullable: true })
   @Column({ type: 'timestamp', nullable: true })
-  check_out_time: Date;
+  check_out_time?: Date | null
 
   @Field({ nullable: true })
   @Column({ nullable: true })
@@ -47,6 +47,12 @@ export class AttendanceDailyPunch extends BaseEntity {
   @Field() 
   @Column({ default: false })
   miss_check_out: boolean;
+
+  @Column({ type: 'timestamp', nullable: true })
+  check_in_actual: Date | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  check_out_actual: Date | null;
 
   @Field(() => AttendanceDailyTimesheet)
   @ManyToOne(() => AttendanceDailyTimesheet, ts => ts.punches)

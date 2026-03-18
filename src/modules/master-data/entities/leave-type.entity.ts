@@ -12,6 +12,11 @@ export class LeaveType extends BaseEntity {
   companyId: string;
 
   @Field()
+  @Column({ name: 'code', type: 'varchar', length: 50 })
+  @Index() 
+  code: string;
+
+  @Field()
   @Column({ name: 'leave_type_name', type: 'varchar' })
   leaveTypeName: string;
 

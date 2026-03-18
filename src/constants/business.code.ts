@@ -27,4 +27,12 @@ export const BusinessCodes = {
     code: 1006,
     message: 'An internal server error occurred.',
   },
+  COMPANY_NOT_FOUND: {
+    code: 1007,
+    message: 'Company not found.',
+  },
+  EMPLOYEE_NOT_FOUND: {
+    code: 1008,
+    message: 'Employee not found.',
+  },
 }

@@ -1,4 +1,4 @@
-import { ObjectType, Field, ID, Float } from '@nestjs/graphql';
+import { ObjectType, Field, ID, Float, Int } from '@nestjs/graphql';
 import { Entity, Column, Index, ManyToOne, JoinColumn } from 'typeorm';
 import { BaseEntity } from '../../../database/entities/base.entity';
 import { Employee } from '../../master-data/entities/employee.entity';
@@ -16,41 +16,73 @@ export class AttendanceMonthlyTimesheet extends BaseEntity {
   @Column({ type: 'bigint' })
   employee_id: string;
 
-  @Field()
+  @Field(() => Int)
   @Column()
   month: number;
 
-  @Field()
+  @Field(() => Int)
   @Column()
   year: number;
 
+  // --- Công tổng hợp ---
   @Field(() => Float)
-  @Column({ type: 'decimal', precision: 8, scale: 2, default: 0 })
-  actual_workday_days: number;
+  @Column({ type: 'decimal', precision: 10, scale: 3, default: 0 })
+  total_work_days: number; // Tổng ngày công thực tế đi làm
 
-  @Field()
+  @Field(() => Float)
+  @Column({ type: 'decimal', precision: 10, scale: 3, default: 0 })
+  total_paid_days: number; // Tổng ngày được trả lương (Công làm + Nghỉ phép có lương + Lễ)
+
+  @Field(() => Float)
+  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
+  total_work_hours: number;
+
+  // --- Vi phạm (Late/Early/Missing) ---
+  @Field(() => Int)
+  @Column({ default: 0 })
+  total_late_days: number;
+
+  @Field(() => Int)
   @Column({ default: 0 })
   total_late_minutes: number;
 
-  @Field()
+  @Field(() => Int)
   @Column({ default: 0 })
-  late_count: number;
+  total_early_leave_minutes: number;
 
-  @Field()
+  @Field(() => Int)
   @Column({ default: 0 })
-  total_overtime_minutes: number;
+  total_missing_check: number;
+
+  // --- Tăng ca & Nghỉ ---
+  @Field(() => Float)
+  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
+  total_ot_hours: number;
+
+  @Field(() => Float)
+  @Column({ type: 'decimal', precision: 10, scale: 3, default: 0 })
+  total_leave_days: number; // Nghỉ phép (đã quy đổi từ giờ ra ngày công)
+
+  @Field(() => Float)
+  @Column({ type: 'decimal', precision: 10, scale: 3, default: 0 })
+  total_remote_days: number;
+
+  // --- Trạng thái & Audit ---
+  @Field()
+  @Column({ default: 'pending' }) // pending, confirmed, locked
+  confirmation_status: string;
 
   @Field({ nullable: true })
-  @Column({ nullable: true })
-  confirmation_status: string; // pending/confirmed/rejected
+  @Column({ type: 'timestamp', nullable: true })
+  last_sync_at: Date;
 
-  @Field(() => Company)
-  @ManyToOne(() => Company, company => company.attendanceMonthlyTimesheets)
-  @JoinColumn({ name: 'company_id' })
-  company: Company;
-
-  @Field(() => Employee)
-  @ManyToOne(() => Employee, employee => employee.attendanceMonthlyTimesheets)
+  // Relations
+  @ManyToOne(() => Employee)
   @JoinColumn({ name: 'employee_id' })
   employee: Employee;
+
+  @Field(() => Company)
+  @ManyToOne(() => Company, (company) => company.attendanceMonthlyTimesheets)
+  @JoinColumn({ name: 'company_id' })
+  company: Company;
 }

@@ -16,7 +16,7 @@ export class TypeOrmConfigService
       database: process.env.DATABASE_NAME,
       autoLoadEntities: true,
       synchronize: process.env.DATABASE_SYNCHRONIZE === 'true',
-      logging: process.env.NODE_ENV !== 'production',
+      // logging: process.env.NODE_ENV !== 'production',
     };
   }
 }

@@ -1,11 +1,18 @@
-import { ObjectType, Field, ID, Float } from '@nestjs/graphql';
-import { Entity, Column, Index, ManyToOne, JoinColumn, OneToMany } from 'typeorm';
+import { ObjectType, Field, ID, Float, Int } from '@nestjs/graphql';
+import {
+  Entity,
+  Column,
+  Index,
+  ManyToOne,
+  JoinColumn,
+  OneToMany,
+} from 'typeorm';
 import { BaseEntity } from '../../../database/entities/base.entity';
 import { Employee } from '../../master-data/entities/employee.entity';
 import { AttendanceDailyPunch } from './attendance-daily-punch.entity';
 import { AttendancePunchRecord } from './attendance-punch-record.entity';
-import { LeaveRequestItem } from '../../leave-management/entities/leave-request-item.entity';
 import { Company } from '../../master-data/entities/company.entity';
+import { AttendanceRequest } from '../../leave-management/entities/attendance-request.entity';
 
 @ObjectType()
 @Entity('attendance_daily_timesheets')
@@ -23,6 +30,10 @@ export class AttendanceDailyTimesheet extends BaseEntity {
   @Column({ type: 'date' })
   attendance_date: Date;
 
+  @Field(() => Int)
+  @Column()
+  weekday: number; // Thứ trong tuần (0-6)
+
   @Field()
   @Column()
   month: number;
@@ -31,53 +42,154 @@ export class AttendanceDailyTimesheet extends BaseEntity {
   @Column()
   year: number;
 
-  @Field(() => Float)
-  @Column({ type: 'decimal', precision: 6, scale: 2, default: 0 })
-  total_workday: number;
+  @Column({
+    type: 'varchar',
+    nullable: true,
+  })
+  shift_id?: string;
+
+  // --- 2. Dữ liệu Check-in/out (Raw & Actual) ---
+  // Sửa các trường Date
+  @Field(() => Date, { nullable: true })
+  @Column({ type: 'timestamp', nullable: true })
+  check_in_raw: Date | null;
+
+  @Field(() => Date, { nullable: true })
+  @Column({ type: 'timestamp', nullable: true })
+  check_out_raw: Date | null;
+
+  @Field(() => Date, { nullable: true })
+  @Column({ type: 'timestamp', nullable: true })
+  check_in_actual: Date | null;
+
+  @Field(() => Date, { nullable: true })
+  @Column({ type: 'timestamp', nullable: true })
+  check_out_actual: Date | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  check_in_result?: string;
+
+  @Column({ type: 'varchar', nullable: true })
+  check_out_result?: string;
+
+  // --- 3. Chỉ số tính toán (Phút & Giờ) ---
+  @Field(() => Int)
+  @Column({ default: 0 })
+  late_minutes: number;
+
+  @Field(() => Int)
+  @Column({ default: 0 })
+  early_leave_minutes: number;
+
+  @Field(() => Int)
+  @Column({ default: 0 })
+  rest_minutes: number; // Tổng phút nghỉ giữa ca
+
+  @Field(() => Int)
+  @Column({ default: 0 })
+  work_minutes: number; // Tổng phút làm thực tế
 
   @Field(() => Float)
   @Column({ type: 'decimal', precision: 6, scale: 2, default: 0 })
-  actual_workday: number;
+  actual_work_hours: number; // Tổng giờ làm thực tế
 
   @Field(() => Float)
   @Column({ type: 'decimal', precision: 6, scale: 2, default: 0 })
-  leave_value: number;
+  total_work_hours_standard: number; // Công chuẩn ca (Ví dụ: 8.0)
+
+  // --- 4. Trạng thái vi phạm & Đơn từ ---
+  @Field()
+  @Column({ default: false })
+  missing_check_in: boolean;
+
+  @Field()
+  @Column({ default: false })
+  missing_check_out: boolean;
+
+  @Field()
+  @Column({ default: false })
+  is_late: boolean;
+
+  @Field()
+  @Column({ default: false })
+  is_early_leave: boolean;
+
+  @Field()
+  @Column({ default: false })
+  is_leave: boolean;
 
   @Field(() => Float)
   @Column({ type: 'decimal', precision: 6, scale: 2, default: 0 })
-  unpaid_leave_value: number;
+  leave_hours: number;
+
+  @Field()
+  @Column({ default: false })
+  is_remote: boolean;
 
   @Field(() => Float)
   @Column({ type: 'decimal', precision: 6, scale: 2, default: 0 })
-  business_trip_value: number;
+  remote_hours: number;
+
+  @Field()
+  @Column({ default: false })
+  is_ot: boolean;
 
   @Field(() => Float)
   @Column({ type: 'decimal', precision: 6, scale: 2, default: 0 })
-  online_value: number;
+  ot_hours: number;
 
+  @Field()
+  @Column({ default: false })
+  is_holiday: boolean;
+
+  @Field()
+  @Column({ default: false })
+  is_redundant: boolean;
+
+  @Field()
+  @Column({ type: 'float', default: 0 })
+  work_hours_redundant: number;
+
+  @Field(() => Float)
+  @Column({ type: 'decimal', precision: 6, scale: 2, default: 0 })
+  adjustment_hours: number;
+
+  @Field()
+  @Column({ default: 'Lack' })
+  attendance_status: string; // Đủ công / Thiếu công / Nghỉ / Không chấm
+
+  // --- 5. Meta & Kiểm soát ---
+
+  @Column({ type: 'varchar', nullable: true })
+  calculation_version?: string;
+
+  @Field({ nullable: true })
+  @Column({ type: 'timestamp', nullable: true })
+  calculated_at: Date;
+
+  @Field()
+  @Column({ default: false })
+  is_recalculated: boolean;
+
+  @Field()
+  @Column({ default: false })
+  is_configured_off_day: boolean;
+
+  // --- Relationships ---
   @Field(() => Company)
-  @ManyToOne(() => Company, company => company.attendanceTimesheets)
+  @ManyToOne(() => Company, (company) => company.attendanceTimesheets)
   @JoinColumn({ name: 'company_id' })
   company: Company;
 
   @Field(() => Employee)
-  @ManyToOne(() => Employee, employee => employee.attendanceTimesheets)
+  @ManyToOne(() => Employee, (employee) => employee.attendanceTimesheets)
   @JoinColumn({ name: 'employee_id' })
   employee: Employee;
 
-  @OneToMany(
-    () => AttendanceDailyPunch,
-    punch => punch.daily_timesheet,
-  )
+  @OneToMany(() => AttendanceDailyPunch, (punch) => punch.daily_timesheet)
   punches: AttendanceDailyPunch[];
 
-  @Field(() => AttendancePunchRecord)
-  @ManyToOne(() => AttendancePunchRecord, punchRecord => punchRecord.dailyTimesheet)
-  @JoinColumn({ name: 'daily_timesheet_id' })
-  punchRecord: AttendancePunchRecord;
-
-
-    @Field(() => [LeaveRequestItem], { nullable: 'itemsAndList' }) 
-  @OneToMany(() => LeaveRequestItem, item => item.dailyTimesheet)
-  leaveRequestItems: LeaveRequestItem[];
+  // Trong AttendanceDailyTimesheet
+  @OneToMany(() => AttendanceRequest, (request) => request.daily_timesheet)
+  requests: AttendanceRequest[];
 }

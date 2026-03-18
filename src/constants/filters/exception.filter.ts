@@ -5,6 +5,7 @@ import {
   HttpException,
   HttpStatus,
 } from '@nestjs/common';
+import { GqlArgumentsHost } from '@nestjs/graphql'; // Cần import cái này
 import { ValidationError } from 'class-validator';
 import { Response } from 'express';
 import { BusinessCodes } from 'src/constants/business.code';
@@ -21,6 +22,10 @@ export class AllExceptionsFilter implements ExceptionFilter {
   }
 
   catch(exception: unknown, host: ArgumentsHost) {
+    if ((host as any).getType() === 'graphql') {
+      return exception; 
+    }
+
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
 
@@ -34,24 +39,20 @@ export class AllExceptionsFilter implements ExceptionFilter {
     if (Array.isArray(exception) && exception[0] instanceof ValidationError) {
       status = HttpStatus.UNPROCESSABLE_ENTITY;
       businessCode = BusinessCodes.ERROR.code;
-
       validationErrors = this.formatValidationErrors(exception);
       message = validationErrors;
     }
 
     if (exception instanceof HttpException) {
       status = exception.getStatus();
-      const exceptionResponse = exception.getResponse();
+      const exceptionResponse = exception.getResponse() as any;
 
-      if (
-        typeof exceptionResponse === 'object' &&
-        exceptionResponse['message']
-      ) {
-        message = Array.isArray(exceptionResponse['message'])
-          ? exceptionResponse['message'][0]
-          : exceptionResponse['message'];
+      if (typeof exceptionResponse === 'object') {
+        message = Array.isArray(exceptionResponse.message)
+          ? exceptionResponse.message[0]
+          : exceptionResponse.message;
 
-        businessCode = exceptionResponse['businessCode'];
+        businessCode = exceptionResponse.businessCode || businessCode;
       } else if (typeof exceptionResponse === 'string') {
         message = exceptionResponse;
       }

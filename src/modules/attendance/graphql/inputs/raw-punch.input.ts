@@ -7,7 +7,7 @@ export class RawPunchInput {
   company_id: string;
 
   @Field(() => String)
-  employee_id: string;
+  external_user_id: string;
 
   @Field()
   punch_time: Date;  // ISO string hoặc timestamp
@@ -32,6 +32,18 @@ export class RawPunchInput {
 
   @Field({ nullable: true })
   address?: string;
+
+  @Field({ nullable: true })
+  device_id?: string;
+
+  @Field({ nullable: true })
+  ssid?: string;
+
+  @Field({ nullable: true })
+  photo_url?: string;
+
+  @Field({ nullable: true })
+  shift_time_target?: Date;
 
   @Field(() => GraphQLJSON, { nullable: true })
   raw_payload?: any;

@@ -12,6 +12,10 @@ export class AttendanceMethod extends BaseEntity {
   companyId: string;
 
   @Field()
+  @Column({ name: 'code', type: 'varchar', length: 50 })
+  code: string;
+  
+  @Field()
   @Column({ name: 'method_name', type: 'varchar' })
   methodName: string;
 

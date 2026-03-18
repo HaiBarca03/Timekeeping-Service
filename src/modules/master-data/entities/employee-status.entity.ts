@@ -12,6 +12,11 @@ export class EmployeeStatus extends BaseEntity {
   companyId: string;
 
   @Field()
+  @Column({ name: 'code', type: 'varchar', length: 50 })
+  @Index() 
+  code: string; 
+
+  @Field()
   @Column({ name: 'status_name', type: 'varchar' })
   statusName: string;
 

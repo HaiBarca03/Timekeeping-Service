@@ -9,10 +9,21 @@ export class CalculationContext {
   companyId: string;
   companyName: string;
   attendanceGroupName?: string;
+  attendanceGroupCode?: string;
 
   punches: AttendanceDailyPunch[] = [];
   shiftContext?: ShiftContext;
 
+  // Thêm vào class CalculationContext
+  isAngel: boolean = false;
+  holidayTime: number = 0; // Giờ hưởng lễ
+  isRedundant: number = 0; // 1: có công thừa, 0: không
+  workHoursRedundant: number = 0; // Số giờ thừa
+  isSaturdayOff: boolean = false;
+  isSaturdayCandidate: boolean = false; 
+
+  isConfiguredOffDay: boolean = false;
+  isHoliday: boolean = false;
   totalWorkedHours: number = 0;
   totalLateMinutes: number = 0;
   totalEarlyMinutes: number = 0;
@@ -23,7 +34,8 @@ export class CalculationContext {
   overtimeCompensatoryMinutes: number = 0;
   onlineValue: number = 0;
   businessTripValue: number = 0;
-
+  leaveHours: number = 0;
+  leaveValue: number = 0;
   finalActualWorkday: number = 0;
   finalTotalWorkday: number = 1;    // default 1 ngày
 

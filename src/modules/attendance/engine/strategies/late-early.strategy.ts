@@ -1,165 +1,188 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { differenceInMinutes } from 'date-fns';
 import { CalculationContext } from '../dto/calculation-context.dto';
 import { RuleFactoryService } from '../services/rule-factory.service';
 
 @Injectable()
 export class LateEarlyStrategy {
+
+  private readonly logger = new Logger(LateEarlyStrategy.name);
+
   constructor(private ruleFactory: RuleFactoryService) {}
 
-  /**
-   * Xử lý phạt trễ/sớm và miss punch cho toàn bộ ngày
-   */
   process(context: CalculationContext): void {
-    // Không có rule ca (onTime/offTime) → skip
-    if (!context.shiftContext?.rule) return;
-
-    // Lấy rule động theo công ty / nhóm ca / loại nhân viên
-    const rule = this.ruleFactory.getLateEarlyRule(
-      context.companyName,
-      context.attendanceGroupName,
-      context.employee.employeeType?.typeName,
-    );
-
-    // Bỏ qua toàn bộ phạt nếu nhân viên thuộc loại ignore (ví dụ TTS, CTV)
-    // if (rule.ignoreForTypes?.includes(context.employee.employeeType?.typeName as any)) {
-    //   return;
-    // }
-
-    let totalLateMin = 0;
-    let totalEarlyMin = 0;
-    let missInPenalty = 0;
-    let missOutPenalty = 0;
-
-    // Chuyển giờ chuẩn thành Date object cùng ngày
-    const onTime = this.parseTime(context.date, context.shiftContext.rule.onTime!);
-    const offTime = this.parseTime(context.date, context.shiftContext.rule.offTime!);
-
-    // Duyệt từng cặp punch
-    for (const punch of context.punches) {
-      // === Phạt trễ (late): check-in muộn ===
-      if (punch.check_in_time) {
-        // Số phút trễ (nếu âm → vào sớm, thường không phạt)
-        const lateMin = differenceInMinutes(punch.check_in_time, onTime);
-
-        if (lateMin > rule.allowedLateMinutes) {
-          totalLateMin += lateMin;
-          punch.late_hours = lateMin / 60; // Lưu vào punch để hiển thị DB
-
-          // Tìm ngưỡng phạt cao nhất thỏa mãn (sort descending threshold)
-          let penalty = 0;
-          for (const p of rule.latePenalties.sort((a, b) => b.threshold - a.threshold)) {
-            if (lateMin >= p.threshold) {
-              penalty = p.penalty;
-              break;
-            }
-          }
-          context.latePenalty += penalty;
-        }
-      } else {
-        // Miss check-in hoàn toàn → phạt nặng
-        missInPenalty += rule.missCheckInPenalty;
+      this.logger.log('========== START LateEarlyStrategy ==========');
+      if (context.isConfiguredOffDay) {
+          this.logger.log('Configured Off Day detected → skip LateEarlyStrategy');
+          context.totalLateMinutes = 0;
+          context.totalEarlyMinutes = 0;
+          return;
       }
 
-      // === Phạt về sớm (early): check-out sớm ===
-      if (punch.check_out_time) {
-        // Số phút về sớm
-        const earlyMin = differenceInMinutes(offTime, punch.check_out_time);
+      if (!context.shiftContext?.rule) {
+          this.logger.warn('No shift rule found → skip LateEarlyStrategy');
+          return;
+      }
 
-        if (earlyMin > rule.allowedEarlyMinutes) {
-          totalEarlyMin += earlyMin;
-          punch.early_hours = earlyMin / 60;
+      const rule = this.ruleFactory.getLateEarlyRule(
+        context.companyName,
+        context.attendanceGroupName,
+        context.employee.employeeType?.typeName,
+      );
 
-          let penalty = 0;
-          for (const p of rule.earlyPenalties.sort((a, b) => b.threshold - a.threshold)) {
-            if (earlyMin >= p.threshold) {
-              penalty = p.penalty;
-              break;
-            }
+      const shiftStart = context.shiftContext.rule.onTime;
+      const shiftEnd = context.shiftContext.rule.offTime;
+
+      let totalLate = 0;
+      let totalEarly = 0;
+      let missPenalty = 0;
+
+      for (const punch of context.punches) {
+        this.logger.log('----- Processing Punch -----');
+        
+        // SỬA 1: Khai báo ở đây để đoạn check bên dưới không bị báo lỗi "Cannot find name"
+        let finalLate = 0;
+        let finalEarly = 0;
+
+        // =========================
+        // LATE
+        // =========================
+        if (punch.check_in_time) {
+          const actualShiftStart = this.getShiftTimeOnDate(punch.check_in_time, shiftStart);
+          const lateMin = Math.max(0, differenceInMinutes(punch.check_in_time, actualShiftStart));
+          finalLate = lateMin;
+
+          if (lateMin <= rule.allowedLateMinutes) finalLate = 0;
+          if (this.hasLeaveStart(context, shiftStart)) finalLate = 0;
+          if (this.hasRemoteStart(context, shiftStart)) finalLate = 0;
+
+          punch.late_hours = finalLate / 60;
+          totalLate += finalLate;
+
+          if (finalLate > 0) {
+            const penalty = this.calculatePenalty(finalLate, rule.latePenalties);
+            context.latePenalty += penalty;
           }
-          context.earlyPenalty += penalty;
+        } else {
+          punch.miss_check_in = true;
         }
-      } else if (punch.check_in_time) {
-        // Có check-in nhưng miss check-out → phạt miss out
-        missOutPenalty += rule.missCheckOutPenalty;
 
-        // Optional: Default check_out_time về giờ offTime để tính giờ làm sau
-        punch.check_out_time = offTime;
+        // =========================
+        // EARLY
+        // =========================
+        if (punch.check_out_time) {
+          const actualShiftStart = this.getShiftTimeOnDate(punch.check_out_time, shiftStart);
+          const earlyMin = Math.max(0, differenceInMinutes(shiftEnd, actualShiftStart));
+          finalEarly = earlyMin;
+
+          if (this.hasLeaveEnd(context, shiftEnd)) finalEarly = 0;
+          if (this.hasRemoteEnd(context, shiftEnd)) finalEarly = 0;
+
+          punch.early_hours = finalEarly / 60;
+          totalEarly += finalEarly;
+
+          if (finalEarly > rule.allowedEarlyMinutes) {
+            const penalty = this.calculatePenalty(finalEarly, rule.earlyPenalties);
+            context.earlyPenalty += penalty;
+          }
+        } else {
+          punch.miss_check_out = true;
+        }
+
+        // ============================================================
+        // SỬA 2: ĐẶT FLAG ÉP 0 CÔNG NẾU VI PHẠM (1 PHÚT CŨNG CHÉM)
+        // ============================================================
+        if (finalLate > 0 || finalEarly > 0 || punch.miss_check_in || punch.miss_check_out) {
+          this.logger.warn(`STRICT RULE: Violation detected. Force 0 work hours for this punch.`);
+          // Đánh dấu vào object punch để WorkdayCalculationStrategy biết đường mà xử lý
+          punch['is_invalid_workday'] = true; 
+        }
+
+        const isFactoryGroup = context.attendanceGroupCode === 'FACTORY_GROUP';
+
+        if (!isFactoryGroup) {
+            if (finalLate > 0 || finalEarly > 0 || punch.miss_check_in || punch.miss_check_out) {
+                this.logger.warn(`STRICT RULE: Violation detected. Force 0 work hours.`);
+                punch['is_invalid_workday'] = true; 
+            }
+        } else {
+            this.logger.debug(`FACTORY GROUP: Skip strict late/early rule.`);
+        }
+
+        const isSaturday = context.date.getDay() === 6;
+        if (isSaturday && !context.isConfiguredOffDay) {
+            if (context.totalLateMinutes > 0 || context.totalEarlyMinutes > 0) {
+                this.logger.warn("Saturday violation: No partial work allowed.");
+            }
+        }
+
+        this.logger.debug(
+          `Punch Result → late_hours=${punch.late_hours}, early_hours=${punch.early_hours}, is_invalid=${punch['is_invalid_workday']}`,
+        );
+      }
+
+      context.totalLateMinutes = totalLate;
+      context.totalEarlyMinutes = totalEarly;
+      context.missPenalty += missPenalty;
+
+      this.logger.log('========== END LateEarlyStrategy ==========');
+  }
+
+  private calculatePenalty(minutes: number, rules: any[]): number {
+
+    this.logger.debug(`Calculating penalty for ${minutes} minutes`);
+
+    const penalties = [...rules].sort((a, b) => b.threshold - a.threshold);
+
+    for (const p of penalties) {
+      if (minutes >= p.threshold) {
+        this.logger.debug(
+          `Matched threshold ${p.threshold} → penalty ${p.penalty}`,
+        );
+        return p.penalty;
       }
     }
 
-    // Lưu tổng hợp để trừ công ở WorkdayCalculationStrategy
-    context.totalLateMinutes = totalLateMin;
-    context.totalEarlyMinutes = totalEarlyMin;
-    context.missPenalty = missInPenalty + missOutPenalty;
+    this.logger.debug('No penalty rule matched');
+    return 0;
   }
 
-  /**
-   * Chuyển string giờ (HH:mm:ss) thành Date object cùng ngày với context.date
-   */
   private parseTime(date: Date, timeStr: string): Date {
     const [h, m] = timeStr.split(':').map(Number);
     const dt = new Date(date);
     dt.setHours(h, m, 0, 0);
+
+    this.logger.debug(`parseTime ${timeStr} → ${dt.toISOString()}`);
+
     return dt;
   }
-}
 
-/**
- * LateEarlyStrategy
- * 
- * Mục đích: 
- *   - Tính thời gian trễ (late) khi check-in muộn so với giờ vào ca chuẩn (onTime)
- *   - Tính thời gian về sớm (early) khi check-out sớm so với giờ ra ca chuẩn (offTime)
- *   - Áp dụng phạt trừ công (penalty) theo ngưỡng động từ RuleFactory
- *   - Xử lý phạt khi miss check-in / miss check-out (quên chấm công)
- *   - Lưu tổng hợp phạt để trừ vào actual_workday ở strategy sau
- * 
- * Input (qua context):
- *   - context.shiftContext.rule: onTime, offTime (giờ chuẩn vào/ra ca)
- *   - context.punches: Mảng các cặp punch (check_in_time, check_out_time)
- *   - context.date: Ngày tính công
- *   - context.companyName, context.attendanceGroupName, context.employee.employeeType: Để lấy rule động
- * 
- * Output: Không return gì (void)
- *   - Cập nhật context:
- *     - totalLateMinutes, totalEarlyMinutes (tổng phút trễ/sớm)
- *     - latePenalty, earlyPenalty (số công bị trừ do trễ/sớm)
- *     - missPenalty (tổng phạt do miss in/out)
- *   - Cập nhật từng punch: late_hours, early_hours (để lưu DB)
- * 
- * Ví dụ minh họa (ca 8:00-12:00 & 13:00-17:00)
- * Giả sử rule từ RuleFactory (cho công ty STAAAR):
- *   - allowedLateMinutes: 15
- *   - latePenalties: [{threshold:15, penalty:0.25}, {threshold:45, penalty:0.5}, {threshold:90, penalty:1.0}]
- *   - missCheckInPenalty: 1.0
- *   - missCheckOutPenalty: 0.5
- * 
- * 1. Trễ 20 phút (check-in 08:20)
- *    - lateMin = 20 > 15 → totalLateMin = 20
- *    - punch.late_hours ≈ 0.33
- *    - Penalty: 20 >= 15 → trừ 0.25 công → context.latePenalty += 0.25
- * 
- * 2. Trễ nặng 70 phút (check-in 09:10)
- *    - lateMin = 70
- *    - Penalty: 70 >= 45 → trừ 0.5 công (ngưỡng cao hơn)
- *    - Nếu >=90 phút → trừ 1.0 công (coi như vắng)
- * 
- * 3. Về sớm 40 phút (check-out 16:20)
- *    - earlyMin = 40 (giả sử allowedEarlyMinutes = 10)
- *    - punch.early_hours ≈ 0.67
- *    - Penalty: tùy earlyPenalties (ví dụ >30p trừ 0.25 công)
- * 
- * 4. Miss check-in hoàn toàn (không vào)
- *    - missInPenalty += 1.0 → trừ 1 công (vắng)
- * 
- * 5. Có check-in nhưng miss check-out
- *    - missOutPenalty += 0.5 → trừ 0.5 công
- *    - Tự động default check_out_time = 17:00 (để tính giờ làm ở strategy sau)
- * 
- * Logic phạt:
- *   - Chỉ phạt nếu vượt ngưỡng allowed (thường 5-15 phút)
- *   - Penalty lấy ngưỡng cao nhất thỏa mãn (sort descending)
- *   - Nhân viên TTS/CTV/... có thể ignore phạt hoàn toàn
- *   - Miss check-in/out phạt nặng hơn trễ/sớm thông thường
- */
+  private getShiftTimeOnDate(targetDate: Date, shiftTime: Date): Date {
+    const result = new Date(targetDate); // Lấy ngày của punch (Ngày chấm công)
+    result.setHours(shiftTime.getHours());
+    result.setMinutes(shiftTime.getMinutes());
+    result.setSeconds(0);
+    result.setMilliseconds(0);
+    return result;
+  }
+
+  private hasLeaveStart(context: CalculationContext, shiftStart: Date): boolean {
+    this.logger.debug('Checking leave at shift start');
+    return false;
+  }
+
+  private hasLeaveEnd(context: CalculationContext, shiftEnd: Date): boolean {
+    this.logger.debug('Checking leave at shift end');
+    return false;
+  }
+
+  private hasRemoteStart(context: CalculationContext, shiftStart: Date): boolean {
+    this.logger.debug('Checking remote at shift start');
+    return false;
+  }
+
+  private hasRemoteEnd(context: CalculationContext, shiftEnd: Date): boolean {
+    this.logger.debug('Checking remote at shift end');
+    return false;
+  }
+}
