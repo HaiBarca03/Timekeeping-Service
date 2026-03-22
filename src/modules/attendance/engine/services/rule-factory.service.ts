@@ -22,7 +22,7 @@ export class RuleFactoryService {
   ): LateEarlyRule {
     const defaultRule: LateEarlyRule = {
       allowedLateMinutes: 1,
-      allowedEarlyMinutes: 10,
+      allowedEarlyMinutes: 1,
       latePenalties: [
         { threshold: 1, penalty: 1.0 }, // trễ >1p mất 1 công
       ],

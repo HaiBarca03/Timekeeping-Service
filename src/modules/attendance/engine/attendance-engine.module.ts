@@ -23,6 +23,11 @@ import { StorePunchStrategy } from './strategies/store-punch.strategy';
 import { Holiday } from '../entities/holidays.entity';
 import { BreakTimeStrategy } from './strategies/break-time.strategy';
 import { LeavePolicyRule } from 'src/modules/master-data/entities/leave-policy-rule.entity';
+import { BackdateOverride } from '../entities/backdate_overrides.entity';
+import { RedisModule } from 'src/redis/redis.module';
+import { SwapStrategy } from './strategies/swap.strategy';
+import { MaternityStrategy } from './strategies/maternity.strategy';
+import { CorrectionStrategy } from './strategies/correction.strategy';
 
 @Module({
   imports: [
@@ -34,9 +39,11 @@ import { LeavePolicyRule } from 'src/modules/master-data/entities/leave-policy-r
       Employee,
       Holiday,
       ShiftAssignment,
+      BackdateOverride,
       LeavePolicyRule,
       Shift,
     ]),
+    RedisModule,
     forwardRef(() => LeaveManagementModule),
   ],
   providers: [
@@ -49,6 +56,9 @@ import { LeavePolicyRule } from 'src/modules/master-data/entities/leave-policy-r
     RemoteWorkStrategy,
     StorePunchStrategy,
     WorkdayCalculationStrategy,
+    SwapStrategy,
+    MaternityStrategy,
+    CorrectionStrategy,
     ShiftResolverService,
     RuleFactoryService,
     AttendanceRecordService,

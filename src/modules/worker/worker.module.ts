@@ -10,7 +10,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { MasterDataModule } from '../master-data/master-data.module';
 import { AttendanceModule } from '../attendance/attendance.module';
 import { AttendanceProcessor } from './processor/attendance.processor';
-import { CalculateDailyProcessor } from './processor/calculate-daily.processor';
+// import { CalculateDailyProcessor } from './processor/calculate-daily.processor';
 
 @Module({
   imports: [
@@ -29,6 +29,6 @@ import { CalculateDailyProcessor } from './processor/calculate-daily.processor';
       name: QUEUE_NAMES.CALCULATE_DAILY,
     }),
   ],
-  providers: [AttendanceProcessor, CalculateDailyProcessor],
+  providers: [AttendanceProcessor],
 })
 export class WorkerModule {}

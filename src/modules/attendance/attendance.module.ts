@@ -14,6 +14,9 @@ import { AttendanceEngineModule } from './engine/attendance-engine.module';
 import { BullModule } from '@nestjs/bullmq';
 import { QUEUE_NAMES } from 'src/constants';
 import { AttendanceController } from './attendance.controller';
+import { ShiftAssignment } from './entities/shift-assignment.entity';
+import { BackdateOverride } from './entities/backdate_overrides.entity';
+import { RedisModule } from 'src/redis/redis.module';
 
 @Module({
   imports: [
@@ -23,8 +26,11 @@ import { AttendanceController } from './attendance.controller';
       AttendanceDailyTimesheet,
       AttendanceMonthSetting,
       AttendanceMonthlyTimesheet,
+      ShiftAssignment,
+      BackdateOverride,
       Employee,
     ]),
+    RedisModule,
     forwardRef(() => AttendanceEngineModule),
     BullModule.registerQueue({
       name: QUEUE_NAMES.CALCULATE_DAILY,
@@ -32,6 +38,6 @@ import { AttendanceController } from './attendance.controller';
   ],
   controllers: [AttendanceController],
   providers: [AttendanceService, AttendanceResolver],
-  exports: [AttendanceEngineModule, TypeOrmModule],
+  exports: [AttendanceEngineModule, TypeOrmModule, AttendanceService],
 })
 export class AttendanceModule {}

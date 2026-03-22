@@ -44,7 +44,6 @@ export class EmployeeListItemDto {
   joinedAt: Date | null;
   resignedAt: Date | null;
 
-  standardWorkdays: number;
   companyId: string;
 
   company: CompanyDto | null;

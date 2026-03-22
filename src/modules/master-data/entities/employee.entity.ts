@@ -39,6 +39,11 @@ export class Employee extends BaseEntity {
   workLocationId: string;
 
   @Field()
+  @Index({ unique: true })
+  @Column({ name: 'origin_id', type: 'varchar', unique: true, nullable: true })
+  originId: string;
+
+  @Field()
   @Column({ name: 'user_id', type: 'varchar' })
   userId: string;
 
@@ -65,16 +70,6 @@ export class Employee extends BaseEntity {
   @Field(() => ID, { nullable: true })
   @Column({ name: 'manager_id', type: 'bigint', nullable: true })
   managerId: string;
-
-  @Field(() => Float, { nullable: true })
-  @Column({
-    name: 'standard_workdays',
-    type: 'decimal',
-    precision: 6,
-    scale: 2,
-    nullable: true,
-  })
-  standardWorkdays: number;
 
   @Field(() => String, { nullable: true })
   @Column({ name: 'birthday', type: 'date', nullable: true })

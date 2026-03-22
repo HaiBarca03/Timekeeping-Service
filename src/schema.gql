@@ -26,6 +26,7 @@ type AttendanceDailyTimesheet {
   is_recalculated: Boolean!
   is_redundant: Boolean!
   is_remote: Boolean!
+  is_saturday_candidate: Boolean!
   late_minutes: Int!
   leave_hours: Float!
   missing_check_in: Boolean!
@@ -48,6 +49,8 @@ type AttendanceGroup {
   defaultShift: Shift
   defaultShiftId: ID
   groupName: String!
+  originId: String!
+  shifts: [Shift!]
   status: String!
 }
 
@@ -123,6 +126,7 @@ type Company {
   attendanceTimesheets: [AttendanceDailyTimesheet]
   companyName: String!
   employees: [Employee]
+  originId: String!
 }
 
 """
@@ -137,6 +141,7 @@ type Department {
   departmentCode: String
   departmentName: String!
   employees: [Employee]
+  originId: String!
   parent: Department
   parentId: ID
   status: String!
@@ -166,9 +171,9 @@ type Employee {
   leavePolicy: LeavePolicy
   manager: Employee
   managerId: ID
+  originId: String!
   phoneNumber: String
   resignedAt: String
-  standardWorkdays: Float
   subordinates: [Employee]
   userId: String!
   userName: String!
@@ -254,21 +259,23 @@ type Query {
 type Shift {
   allowEarlyMinutes: Float!
   allowLateMinutes: Float!
+  attendanceGroups: [AttendanceGroup!]
   code: String!
   company: Company
   companyId: ID!
   endTime: DateTime!
-  restRules: [ShiftRestRule]
+  originId: String!
+  restRule: ShiftRestRule
   shiftHours: Float!
   shiftName: String!
+  shiftRestRuleId: ID
   startTime: DateTime!
 }
 
 type ShiftRestRule {
   restBeginTime: String
   restEndTime: String
-  shift: Shift
-  shiftId: ID!
+  shifts: [Shift!]
 }
 
 type TimesheetAdjustmentRequest {

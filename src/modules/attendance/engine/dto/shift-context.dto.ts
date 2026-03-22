@@ -5,14 +5,14 @@ import { ShiftAssignment } from '../../entities/shift-assignment.entity';
 export class ShiftContext {
   shift?: Shift;
 
-  restRules: ShiftRestRule[] = [];
+  restRule: ShiftRestRule;
 
   assignments: ShiftAssignment[] = [];
 
   constructor(shift?: Shift, assignments?: ShiftAssignment[]) {
     if (shift) {
       this.shift = shift;
-      this.restRules = shift.restRules || [];
+      this.restRule = shift.restRule;
     }
 
     if (assignments && assignments.length > 0) {
@@ -21,7 +21,7 @@ export class ShiftContext {
       if (!shift) {
         const s = assignments[0].shift;
         this.shift = s;
-        this.restRules = s?.restRules || [];
+        this.restRule = s?.restRule;
       }
     }
   }
@@ -52,16 +52,27 @@ export class ShiftContext {
     return null;
   }
 
+  get totalStandardHours(): number {
+    if (this.assignments && this.assignments.length > 0) {
+      // Cộng dồn shiftHours của từng ca (ví dụ: 1h + 1h + 2h = 4h)
+      return this.assignments.reduce(
+        (sum, a) => sum + (a.shift?.shiftHours || 0),
+        0,
+      );
+    }
+    // Nếu là Office (không có assignments), lấy shiftHours của ca mặc định
+    return this.shift?.shiftHours || 8;
+  }
+
   getStandardWorkHours(
     isMaternityShift: boolean = false,
     groupCode?: string,
   ): number {
-    let baseHours = this.shift?.shiftHours ?? 8;
+    let baseHours = this.totalStandardHours;
 
     // 2. Nếu là thai sản (is_maternity_shift = 1), giờ chuẩn giảm 1 tiếng
     if (isMaternityShift && groupCode === 'STORE_GROUP') {
-      // Nếu là ca 8 tiếng thì chuẩn giảm còn 7
-      return baseHours > 0 ? baseHours - 1 : 0;
+      return baseHours > 1 ? baseHours - 1 : 0;
     }
 
     return baseHours;
@@ -70,14 +81,18 @@ export class ShiftContext {
   isRestTime(time: string): boolean {
     const current = this.toMinutes(time);
 
-    return this.restRules.some((rest) => {
-      if (!rest.restBeginTime || !rest.restEndTime) return false;
+    if (
+      !this.restRule ||
+      !this.restRule.restBeginTime ||
+      !this.restRule.restEndTime
+    ) {
+      return false;
+    }
 
-      const begin = this.toMinutes(rest.restBeginTime);
-      const end = this.toMinutes(rest.restEndTime);
+    const begin = this.toMinutes(this.restRule.restBeginTime);
+    const end = this.toMinutes(this.restRule.restEndTime);
 
-      return current >= begin && current <= end;
-    });
+    return current >= begin && current <= end;
   }
 
   private toMinutes(time: string): number {

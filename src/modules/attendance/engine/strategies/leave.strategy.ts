@@ -21,6 +21,12 @@ export class LeaveStrategy {
   ) {}
 
   async process(context: CalculationContext): Promise<void> {
+    this.logger.debug(
+      `[DEBUG] Effective AllowLate from Context: ${context['allowLateMinutes']}`,
+    );
+    this.logger.debug(
+      `[DEBUG] AllowLate from Shift Rule: ${context.shiftContext?.rule?.allowLateMinutes}`,
+    );
     const { employee, date, shiftContext } = context;
     const currentDate = new Date(date.toISOString().split('T')[0]);
 

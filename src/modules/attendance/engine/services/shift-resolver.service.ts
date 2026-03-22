@@ -62,9 +62,9 @@ export class ShiftResolverService {
 
           if (hasAssignment) {
             context.isHoliday = true;
-            context.isConfiguredOffDay = true; // Đánh dấu nghỉ hưởng lễ
+            // context.isConfiguredOffDay = true; // Đánh dấu nghỉ hưởng lễ
             context.finalTotalWorkday = 1.0; // Được hưởng 1 công lễ
-            return new ShiftContext(); // Nghỉ lễ không cần gán ca làm việc
+            // return new ShiftContext(); // Nghỉ lễ không cần gán ca làm việc
           } else {
             this.logger.debug(
               `Lễ trùng ngày nghỉ/ngày không gán ca -> Không hưởng công lễ.`,
@@ -159,7 +159,7 @@ export class ShiftResolverService {
     if (context.employee.attendanceGroup?.defaultShiftId) {
       shift = await this.shiftRepo.findOne({
         where: { id: context.employee.attendanceGroup.defaultShiftId },
-        relations: ['restRules'],
+        relations: ['restRule'],
       });
     }
 
@@ -181,7 +181,7 @@ export class ShiftResolverService {
         date: context.date,
         isActive: true,
       },
-      relations: ['shift', 'shift.restRules'],
+      relations: ['shift', 'shift.restRule'],
     });
 
     if (assignments.length === 0) {
@@ -212,5 +212,25 @@ export class ShiftResolverService {
     // Ở đây ta trả về true để họ được hưởng lễ nếu rơi vào ngày thường.
     const dayOfWeek = date.getDay();
     return dayOfWeek !== 0; // Nếu lễ rơi vào Chủ Nhật văn phòng (không gán ca) -> false
+  }
+
+  // Thêm vào trong class ShiftResolverService
+
+  async resolveShiftById(
+    shiftId: string,
+    date: Date,
+  ): Promise<ShiftContext | null> {
+    const shift = await this.shiftRepo.findOne({
+      where: { id: shiftId },
+      relations: ['restRule'], // Phải lấy restRule để không bị lỗi "No shift rule found"
+    });
+
+    if (!shift) {
+      this.logger.error(`Override Shift ID ${shiftId} not found in Database`);
+      return null;
+    }
+
+    // Trả về một ShiftContext mới dựa trên ca làm việc vừa tìm được
+    return new ShiftContext(shift);
   }
 }

@@ -1,6 +1,13 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import {
+  Brackets,
+  In,
+  IsNull,
+  LessThanOrEqual,
+  MoreThanOrEqual,
+  Repository,
+} from 'typeorm';
 import { ShiftResolverService } from './services/shift-resolver.service';
 import { PunchProcessingStrategy } from './strategies/punch-processing.strategy';
 import { BreakTimeStrategy } from './strategies/break-time.strategy';
@@ -14,6 +21,14 @@ import { AttendanceDailyPunch } from '../entities/attendance-daily-punch.entity'
 import { Employee } from 'src/modules/master-data/entities/employee.entity';
 import { LeaveStrategy } from './strategies/leave.strategy';
 import { StorePunchStrategy } from './strategies/store-punch.strategy';
+import { BackdateOverride } from '../entities/backdate_overrides.entity';
+import { RedisService } from 'src/redis/redis.service';
+import { ShiftAssignment } from '../entities/shift-assignment.entity';
+import { formatDate } from 'date-fns';
+import { SwapStrategy } from './strategies/swap.strategy';
+import { MaternityStrategy } from './strategies/maternity.strategy';
+import { CorrectionStrategy } from './strategies/correction.strategy';
+// import { BackdateOverride } from '../entities/backdate_overrides.entity';
 
 @Injectable()
 export class AttendanceEngine {
@@ -28,6 +43,14 @@ export class AttendanceEngine {
     @InjectRepository(AttendanceDailyPunch)
     private punchRepo: Repository<AttendanceDailyPunch>,
 
+    @InjectRepository(ShiftAssignment)
+    private shiftAssignmentRepo: Repository<ShiftAssignment>,
+
+    @InjectRepository(BackdateOverride)
+    private overrideRepo: Repository<BackdateOverride>,
+
+    private readonly redis: RedisService,
+
     private shiftResolver: ShiftResolverService,
     private punchStrategy: PunchProcessingStrategy,
     private breakStrategy: BreakTimeStrategy,
@@ -37,130 +60,97 @@ export class AttendanceEngine {
     private remoteStrategy: RemoteWorkStrategy,
     private workdayStrategy: WorkdayCalculationStrategy,
     private leaveStrategy: LeaveStrategy,
+    private swapStrategy: SwapStrategy,
+    private maternityStrategy: MaternityStrategy,
+    private correctionStrategy: CorrectionStrategy,
   ) {}
 
   async calculateDailyForEmployee(
     employeeId: string,
     date: Date,
+    overrideId?: string,
   ): Promise<AttendanceDailyTimesheet> {
     this.logger.debug(`================ ENGINE START ================`);
-    this.logger.debug(`EmployeeId: ${employeeId}`);
-    this.logger.debug(`Date: ${date.toISOString()}`);
-
-    const employee = await this.getEmployee(employeeId);
-
-    this.logger.debug(`Employee loaded`);
     this.logger.debug(
-      JSON.stringify(
-        {
-          id: employee.id,
-          company: employee.company?.companyName,
-          attendanceGroup: employee.attendanceGroup?.groupName,
-          employeeType: employee.employeeType?.typeName,
-        },
-        null,
-        2,
-      ),
+      `EmployeeId: ${employeeId} | Date: ${date.toISOString().split('T')[0]}`,
     );
 
+    const employee = await this.getEmployee(employeeId);
     const context = new CalculationContext(employee, date);
-
     context.attendanceGroupCode = context.employee.attendanceGroup?.code;
-    // ===== SHIFT RESOLVE =====
+
+    // ===== STEP 0: SHIFT RESOLVE & SWAP =====
+    this.logger.debug(`STEP 0: SHIFT RESOLVE & SWAP STRATEGY START`);
+    // Lấy ca mặc định
     context.shiftContext = await this.shiftResolver.resolveShift(context);
+    // Kiểm tra đổi ca để ghi đè ShiftContext nếu có đơn
+    await this.swapStrategy.process(context);
+    this.logger.debug(
+      `STEP 0 RESULT: Shift resolved ${context.shiftContext?.shift?.code || 'OFF'}`,
+    );
 
-    this.logger.debug(`SHIFT RESOLVED`);
-    // this.logger.debug(JSON.stringify(context.shiftContext, null, 2));
+    // ===== STEP 1: MATERNITY CHECK =====
+    this.logger.debug(`STEP 1: MATERNITY STRATEGY START`);
+    await this.maternityStrategy.process(context);
+    this.logger.debug(
+      `STEP 1 RESULT: isMaternityShift = ${context.isMaternityShift}`,
+    );
 
-    // ===== PUNCH PROCESSING =====
-    this.logger.debug(`STEP 1: PUNCH PROCESSING START`);
-
+    // ===== STEP 2: PUNCH PROCESSING =====
+    this.logger.debug(`STEP 2: PUNCH PROCESSING START`);
     if (context.employee.attendanceGroup?.code === 'STORE_GROUP') {
-      this.logger.debug(`STORE GROUP DETECTED`);
-
       const rawPunches = await this.punchStrategy.getRawPunches(context);
       this.storePunchStrategy.process(context, rawPunches);
     } else {
       await this.punchStrategy.process(context);
     }
+    this.logger.debug(
+      `STEP 2 RESULT: Punches count = ${context.punches?.length}`,
+    );
 
-    this.logger.debug(`STEP 1 RESULT - PUNCHES`);
-    // this.logger.debug(JSON.stringify(context.punches, null, 2));
-
-    // ===== BREAK TIME =====
-    this.logger.debug(`STEP 2: BREAK STRATEGY START`);
+    // ===== STEP 3: BREAK & LATE EARLY =====
+    this.logger.debug(`STEP 3: BREAK & LATE-EARLY STRATEGY START`);
     this.breakStrategy.process(context);
 
-    this.logger.debug(`STEP 2 RESULT`);
-
-    // ===== LATE / EARLY =====
-    this.logger.debug(`STEP 3: LATE EARLY STRATEGY START`);
     if (context.employee.attendanceGroup?.code !== 'STORE_GROUP') {
       this.lateEarlyStrategy.process(context);
     }
-    // this.lateEarlyStrategy.process(context);
-
-    this.logger.debug(`STEP 3 RESULT`);
     this.logger.debug(
-      JSON.stringify(
-        {
-          totalLateMinutes: context.totalLateMinutes,
-          totalEarlyMinutes: context.totalEarlyMinutes,
-          latePenalty: context.latePenalty,
-          earlyPenalty: context.earlyPenalty,
-        },
-        null,
-        2,
-      ),
+      `STEP 3 RESULT: Late: ${context.totalLateMinutes}m, Early: ${context.totalEarlyMinutes}m`,
     );
 
-    this.logger.debug(`STEP 4.5: REMOTE WORK STRATEGY START`);
+    // ===== STEP 4: ADJUSTMENT & CORRECTION =====
+    this.logger.debug(`STEP 4: CORRECTION STRATEGY START`);
+    // Chạy sau LateEarly để "xóa phạt" nếu có đơn giải trình/điều chỉnh
+    await this.correctionStrategy.process(context);
+    this.logger.debug(
+      `STEP 4 RESULT: isManualCorrected = ${context['isManualCorrected'] || false}`,
+    );
+
+    // ===== STEP 5: OTHER REQUESTS (REMOTE, OT, LEAVE) =====
+    this.logger.debug(`STEP 5: OTHER REQUESTS START`);
     await this.remoteStrategy.process(context);
-
-    this.logger.debug(`STEP 4.6: OVERTIME STRATEGY START`);
     await this.overtimeStrategy.process(context);
-
-    // ===== 6. LEAVE STRATEGY (NGHỈ PHÉP/CHẾ ĐỘ) =====
     await this.leaveStrategy.process(context);
-
-    // ===== WORKDAY CALC =====
-    this.logger.debug(`STEP 4: WORKDAY CALCULATION START`);
-    this.workdayStrategy.process(context);
-
-    this.logger.debug(`STEP 4 RESULT`);
     this.logger.debug(
-      JSON.stringify(
-        {
-          totalWorkedHours: context.totalWorkedHours,
-        },
-        null,
-        2,
-      ),
+      `STEP 5 RESULT: OT mins: ${context.overtimeMinutes}, Leave hours: ${context.leaveHours}`,
     );
 
-    // ===== SAVE =====
-    this.logger.debug(`STEP 5: SAVE TIMESHEET`);
-    const result = await this.saveOrUpdateTimesheet(context);
+    // ===== STEP 6: WORKDAY CALCULATION =====
+    this.logger.debug(`STEP 6: WORKDAY CALCULATION START`);
+    // Tính toán dựa trên getStandardWorkHours đã được set bởi Maternity/Swap ở trên
+    this.workdayStrategy.process(context);
+    this.logger.debug(
+      `STEP 6 RESULT: Final Workday: ${context.finalActualWorkday}, Total Hours: ${context.totalWorkedHours}`,
+    );
 
-    this.logger.debug(`TIMESHEET RESULT`);
-    // this.logger.debug(JSON.stringify(result, null, 2));
+    // ===== STEP 7: SAVE TIMESHEET =====
+    this.logger.debug(`STEP 7: SAVE OR UPDATE TIMESHEET`);
+    const result = await this.saveOrUpdateTimesheet(context);
 
     this.logger.debug(`================ ENGINE END ================`);
 
     return result;
-  }
-
-  // Hàm phụ để phục vụ log debug
-  private calculateRawMinutes(context: CalculationContext): number {
-    let mins = 0;
-    context.punches.forEach((p) => {
-      if (p.check_in_time && p.check_out_time) {
-        mins +=
-          (p.check_out_time.getTime() - p.check_in_time.getTime()) /
-          (1000 * 60);
-      }
-    });
-    return mins;
   }
 
   private async getEmployee(id: string): Promise<Employee> {
@@ -170,7 +160,7 @@ export class AttendanceEngine {
         'company',
         'attendanceGroup',
         'attendanceGroup.defaultShift',
-        'attendanceGroup.defaultShift.restRules',
+        'attendanceGroup.defaultShift.restRule',
         'attendanceMethod',
         'employeeType',
         'jobLevel',
@@ -244,18 +234,33 @@ export class AttendanceEngine {
         : isMaternity && groupCode === 'STORE_GROUP'
           ? 7
           : 8;
-
       timesheet.total_work_hours_standard = standardHours;
 
+      // if (context.totalWorkedHours > standardHours) {
+      //   timesheet.is_redundant = true;
+      //   timesheet.work_hours_redundant =
+      //     context.totalWorkedHours - standardHours;
+
+      //   this.logger.debug(
+      //     `REDUNDANT WORK DETECTED → ${timesheet.work_hours_redundant} hours`,
+      //   );
+      // } else {
+      //   timesheet.is_redundant = false;
+      //   timesheet.work_hours_redundant = 0;
+      // }
       if (context.totalWorkedHours > standardHours) {
+        // Nếu làm 10h, ca 8h -> work_hours = 8, redundant = 2
+        timesheet.actual_work_hours = standardHours;
+        timesheet.work_minutes = Math.round(standardHours * 60);
+
         timesheet.is_redundant = true;
         timesheet.work_hours_redundant =
           context.totalWorkedHours - standardHours;
-
-        this.logger.debug(
-          `REDUNDANT WORK DETECTED → ${timesheet.work_hours_redundant} hours`,
-        );
       } else {
+        // Nếu làm 4h, ca 8h -> work_hours = 4, redundant = 0
+        timesheet.actual_work_hours = context.totalWorkedHours;
+        timesheet.work_minutes = Math.round(context.totalWorkedHours * 60);
+
         timesheet.is_redundant = false;
         timesheet.work_hours_redundant = 0;
       }
@@ -264,8 +269,10 @@ export class AttendanceEngine {
     timesheet.total_work_hours_standard =
       context.shiftContext?.getStandardWorkHours() || 8;
 
-    timesheet.rest_minutes =
-      context.shiftContext?.restRules?.reduce((sum, r) => sum + 60, 0) || 0;
+    // timesheet.rest_minutes =
+    //   context.shiftContext?.restRule?.reduce((sum, r) => sum + 60, 0) || 0;
+
+    timesheet.rest_minutes = context['totalRestMinutesValue'] || 0;
 
     // --- 4. Trạng thái vi phạm & Đơn từ ---
     timesheet.missing_check_in = !!primaryPunch?.miss_check_in;
@@ -313,5 +320,27 @@ export class AttendanceEngine {
       ),
     );
     return await this.timesheetRepo.save(timesheet);
+  }
+
+  // private combineDateAndTime(baseDate: Date, timeStr: string): Date {
+  //   const [hours, minutes] = timeStr.split(':').map(Number);
+  //   const result = new Date(baseDate);
+  //   // Quan trọng: Phải set theo giờ Local (hoặc UTC tùy theo cách hệ thống bạn lưu trữ)
+  //   // Ở đây tôi dùng setHours (local) vì log của bạn hiển thị GMT+0700
+  //   result.setHours(hours, minutes, 0, 0);
+  //   return result;
+  // }
+
+  private combineDateAndTime(baseDate: Date, timeStr: string): Date {
+    const [hours, minutes] = timeStr.split(':').map(Number);
+    const result = new Date(baseDate);
+    // Lấy giờ nhập vào (9h) trừ 7 để ra giờ UTC (2h sáng)
+    result.setUTCHours(hours - 7, minutes, 0, 0);
+    return result;
+  }
+
+  private formatDate(date: Date): string {
+    // Đảm bảo trả về yyyy-MM-dd chuẩn để so sánh chuỗi
+    return formatDate(new Date(date), 'yyyy-MM-dd');
   }
 }

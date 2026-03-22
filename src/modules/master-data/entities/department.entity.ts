@@ -27,6 +27,11 @@ export class Department extends BaseEntity {
   companyId: string;
 
   @Field()
+  @Index({ unique: true })
+  @Column({ name: 'origin_id', type: 'varchar', unique: true, nullable: true })
+  originId: string;
+
+  @Field()
   @Column({ name: 'department_name', type: 'varchar' })
   departmentName: string;
 
@@ -45,7 +50,7 @@ export class Department extends BaseEntity {
     default: DepartmentStatus.ACTIVE,
   })
   status: DepartmentStatus;
-  
+
   @Field(() => Company)
   @ManyToOne(() => Company)
   @JoinColumn({ name: 'company_id' })

@@ -1,4 +1,4 @@
-import { Entity, Column, OneToMany } from 'typeorm';
+import { Entity, Column, OneToMany, Index } from 'typeorm';
 import { BaseEntity } from '../../../database/entities/base.entity';
 import { AttendanceMonthSetting } from '../../attendance/entities/attendance-month-setting.entity';
 import { AttendanceMonthlyTimesheet } from '../../attendance/entities/attendance-monthly-timesheet.entity';
@@ -14,23 +14,28 @@ export class Company extends BaseEntity {
   @Column({ name: 'company_name', type: 'varchar' })
   companyName: string;
 
+  @Field()
+  @Index({ unique: true })
+  @Column({ name: 'origin_id', type: 'varchar', unique: true, nullable: true })
+  originId: string;
+
   @Field(() => [AttendanceDailyTimesheet], { nullable: 'itemsAndList' })
-  @OneToMany(() => AttendanceDailyTimesheet, ts => ts.company)
+  @OneToMany(() => AttendanceDailyTimesheet, (ts) => ts.company)
   attendanceTimesheets: AttendanceDailyTimesheet[];
 
   @Field(() => [AttendanceMonthSetting], { nullable: 'itemsAndList' })
-  @OneToMany(() => AttendanceMonthSetting, setting => setting.company) 
+  @OneToMany(() => AttendanceMonthSetting, (setting) => setting.company)
   attendanceMonthSettings: AttendanceMonthSetting[];
 
   @Field(() => [AttendanceMonthlyTimesheet], { nullable: 'itemsAndList' })
-  @OneToMany(() => AttendanceMonthlyTimesheet, ts => ts.company)
+  @OneToMany(() => AttendanceMonthlyTimesheet, (ts) => ts.company)
   attendanceMonthlyTimesheets: AttendanceMonthlyTimesheet[];
 
   @Field(() => [AttendancePunchRecord], { nullable: 'itemsAndList' })
-  @OneToMany(() => AttendancePunchRecord, rec => rec.company)
+  @OneToMany(() => AttendancePunchRecord, (rec) => rec.company)
   attendancePunchRecords: AttendancePunchRecord[];
 
-  @Field(() => [Employee], { nullable: 'itemsAndList' }) 
-  @OneToMany(() => Employee, employee => employee.company)
+  @Field(() => [Employee], { nullable: 'itemsAndList' })
+  @OneToMany(() => Employee, (employee) => employee.company)
   employees: Employee[];
 }

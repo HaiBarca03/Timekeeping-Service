@@ -1,9 +1,19 @@
-import { Entity, Column, ManyToOne, JoinColumn, Index, OneToOne, OneToMany } from 'typeorm';
+import {
+  Entity,
+  Column,
+  ManyToOne,
+  JoinColumn,
+  Index,
+  OneToOne,
+  OneToMany,
+  ManyToMany,
+} from 'typeorm';
 import { BaseEntity } from '../../../database/entities/base.entity';
 import { Company } from './company.entity';
 // import { ShiftRule } from './shift-rule.entity';
 import { ShiftRestRule } from './shift-rest-rule.entity';
 import { Field, ID, ObjectType } from '@nestjs/graphql';
+import { AttendanceGroup } from './attendance-group.entity';
 
 @ObjectType()
 @Entity('shifts')
@@ -15,8 +25,13 @@ export class Shift extends BaseEntity {
   companyId: string;
 
   @Field()
+  @Index({ unique: true })
+  @Column({ name: 'origin_id', type: 'varchar', unique: true, nullable: true })
+  originId: string;
+
+  @Field()
   @Column({ name: 'code', type: 'varchar', length: 50 })
-  code: string
+  code: string;
 
   @Field()
   @Column({ name: 'shift_name', type: 'varchar' })
@@ -28,7 +43,7 @@ export class Shift extends BaseEntity {
   company: Company;
 
   @Field(() => Date)
-  @Column({ name: 'start_time', type: 'timestamptz' }) 
+  @Column({ name: 'start_time', type: 'timestamptz' })
   startTime: Date;
 
   @Field(() => Date)
@@ -51,7 +66,17 @@ export class Shift extends BaseEntity {
   // @OneToOne(() => ShiftRule, (rule) => rule.shift)
   // rule: ShiftRule;
 
-  @Field(() => [ShiftRestRule], { nullable: 'itemsAndList' })
-  @OneToMany(() => ShiftRestRule, (restRule) => restRule.shift)
-  restRules: ShiftRestRule[];
+  @Field(() => ID, { nullable: true })
+  @Column({ name: 'shift_rest_rule_id', type: 'bigint', nullable: true })
+  shiftRestRuleId: string;
+
+  // Quan hệ ManyToOne: Nhiều ca làm chung 1 khung giờ nghỉ
+  @Field(() => ShiftRestRule, { nullable: true })
+  @ManyToOne(() => ShiftRestRule, (restRule) => restRule.shifts)
+  @JoinColumn({ name: 'shift_rest_rule_id' })
+  restRule: ShiftRestRule;
+
+  @Field(() => [AttendanceGroup], { nullable: true })
+  @ManyToMany(() => AttendanceGroup, (group) => group.shifts)
+  attendanceGroups: AttendanceGroup[];
 }

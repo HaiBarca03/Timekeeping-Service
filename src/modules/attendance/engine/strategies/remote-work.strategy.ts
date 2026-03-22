@@ -2,7 +2,10 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CalculationContext } from '../dto/calculation-context.dto';
-import { AttendanceRequest, RequestType } from '../../../leave-management/entities/attendance-request.entity';
+import {
+  AttendanceRequest,
+  RequestType,
+} from '../../../leave-management/entities/attendance-request.entity';
 
 @Injectable()
 export class RemoteWorkStrategy {
@@ -14,28 +17,40 @@ export class RemoteWorkStrategy {
   ) {}
 
   async process(context: CalculationContext): Promise<void> {
+    this.logger.debug(
+      `[DEBUG] Effective AllowLate from Context: ${context['allowLateMinutes']}`,
+    );
+    this.logger.debug(
+      `[DEBUG] AllowLate from Shift Rule: ${context.shiftContext?.rule?.allowLateMinutes}`,
+    );
     const { employee, date } = context;
 
     // 1. Tìm đơn Remote của ngày hôm nay
-      const remoteRequest = await this.requestRepo.createQueryBuilder('request')
-        .innerJoin('request.leave_type', 'lt')
-        .innerJoin('request.detail_time_off', 'detail')
-        .select('detail.hours', 'hours')
-        .where('request.employee_id = :employeeId', { employeeId: employee.id })
-        .andWhere('request.type = :type', { type: RequestType.REMOTE }) 
-        .andWhere('request.status = :status', { status: 'Approved' })
-        .andWhere('request.is_counted = :isCounted', { isCounted: true })
-        .andWhere(':date BETWEEN CAST(detail.start_time AS DATE) AND CAST(detail.end_time AS DATE)', { 
-          date: date.toISOString().split('T')[0] 
-        })
-        .getRawOne();
+    const remoteRequest = await this.requestRepo
+      .createQueryBuilder('request')
+      .innerJoin('request.leave_type', 'lt')
+      .innerJoin('request.detail_time_off', 'detail')
+      .select('detail.hours', 'hours')
+      .where('request.employee_id = :employeeId', { employeeId: employee.id })
+      .andWhere('request.type = :type', { type: RequestType.REMOTE })
+      .andWhere('request.status = :status', { status: 'Approved' })
+      .andWhere('request.is_counted = :isCounted', { isCounted: true })
+      .andWhere(
+        ':date BETWEEN CAST(detail.start_time AS DATE) AND CAST(detail.end_time AS DATE)',
+        {
+          date: date.toISOString().split('T')[0],
+        },
+      )
+      .getRawOne();
 
     if (remoteRequest) {
       // 2. CHỈ GÁN VÀO onlineValue (Không cộng totalWorkedHours ở đây)
       // remoteRequest.hours là kết quả từ câu select trên
-      context.onlineValue = parseFloat(remoteRequest.hours) || 0; 
-      
-      this.logger.debug(`Step Remote: Found ${context.onlineValue} hours for employee ${employee.id}`);
+      context.onlineValue = parseFloat(remoteRequest.hours) || 0;
+
+      this.logger.debug(
+        `Step Remote: Found ${context.onlineValue} hours for employee ${employee.id}`,
+      );
     } else {
       context.onlineValue = 0; // Đảm bảo không bị dữ liệu cũ
     }

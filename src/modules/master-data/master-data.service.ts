@@ -13,7 +13,7 @@ export class MasterDataService {
     @InjectRepository(Employee)
     private readonly employeeRepository: Repository<Employee>,
 
-    @InjectRepository(Company) 
+    @InjectRepository(Company)
     private readonly companyRepository: Repository<Company>,
   ) {}
 
@@ -53,19 +53,16 @@ export class MasterDataService {
       larkId: e.larkId,
       userName: e.userName,
       fullName: e.fullName,
-      employeeCode: e.userId, 
+      employeeCode: e.userId,
       email: e.email,
       phoneNumber: e.phoneNumber,
       gender: e.gender,
       birthday: e.birthday,
       joinedAt: e.joinedAt,
       resignedAt: e.resignedAt,
-      standardWorkdays: Number(e.standardWorkdays),
       companyId: e.companyId,
 
-      company: e.company
-        ? { companyName: e.company.companyName }
-        : null,
+      company: e.company ? { companyName: e.company.companyName } : null,
 
       employeeStatus: e.employeeStatus
         ? { statusName: e.employeeStatus.statusName }
@@ -75,9 +72,7 @@ export class MasterDataService {
         ? { typeName: e.employeeType.typeName }
         : null,
 
-      jobLevel: e.jobLevel
-        ? { levelName: e.jobLevel.levelName }
-        : null,
+      jobLevel: e.jobLevel ? { levelName: e.jobLevel.levelName } : null,
 
       workLocation: e.workLocation
         ? {
@@ -86,10 +81,11 @@ export class MasterDataService {
           }
         : null,
 
-      departments: e.departments?.map((d) => ({
-        departmentName: d.departmentName,
-        departmentCode: d.departmentCode,
-      })) || [],
+      departments:
+        e.departments?.map((d) => ({
+          departmentName: d.departmentName,
+          departmentCode: d.departmentCode,
+        })) || [],
 
       manager: e.manager
         ? {
@@ -116,7 +112,7 @@ export class MasterDataService {
       },
     };
   }
-  
+
   async findOneEmployee(id: string) {
     const employee = await this.employeeRepository.findOne({
       where: { id },
@@ -132,11 +128,11 @@ export class MasterDataService {
       ],
     });
 
-      if (!employee) {
-        throw new BusinessException(
-          BusinessCodes.EMPLOYEE_NOT_FOUND.message, 
-          BusinessCodes.EMPLOYEE_NOT_FOUND.code
-        );
+    if (!employee) {
+      throw new BusinessException(
+        BusinessCodes.EMPLOYEE_NOT_FOUND.message,
+        BusinessCodes.EMPLOYEE_NOT_FOUND.code,
+      );
     }
   }
 }
