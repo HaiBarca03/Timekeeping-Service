@@ -63,7 +63,7 @@ export class AttendanceEngine {
     private swapStrategy: SwapStrategy,
     private maternityStrategy: MaternityStrategy,
     private correctionStrategy: CorrectionStrategy,
-  ) {}
+  ) { }
 
   async calculateDailyForEmployee(
     employeeId: string,
@@ -85,9 +85,17 @@ export class AttendanceEngine {
     context.shiftContext = await this.shiftResolver.resolveShift(context);
     // Kiểm tra đổi ca để ghi đè ShiftContext nếu có đơn
     await this.swapStrategy.process(context);
+    this.logger.debug(`context`, context);
     this.logger.debug(
       `STEP 0 RESULT: Shift resolved ${context.shiftContext?.shift?.code || 'OFF'}`,
     );
+
+    // ======= BACKDATE OVERRIDE APPLY =======
+    const overrides = await this.getApplicableOverrides(employeeId, date, overrideId);
+    this.applyOverridesToContext(context, overrides);
+    if (overrides.length > 0) {
+      this.logger.debug(`APPLIED ${overrides.length} BACKDATE OVERRIDES`);
+    }
 
     // ===== STEP 1: MATERNITY CHECK =====
     this.logger.debug(`STEP 1: MATERNITY STRATEGY START`);
@@ -332,15 +340,122 @@ export class AttendanceEngine {
   // }
 
   private combineDateAndTime(baseDate: Date, timeStr: string): Date {
+    const date = new Date(baseDate); // baseDate đang là 2026-02-11T00:00:00.000Z
     const [hours, minutes] = timeStr.split(':').map(Number);
-    const result = new Date(baseDate);
-    // Lấy giờ nhập vào (9h) trừ 7 để ra giờ UTC (2h sáng)
-    result.setUTCHours(hours - 7, minutes, 0, 0);
-    return result;
+
+    // Thiết lập giờ theo giờ địa phương (Local Time)
+    date.setHours(hours, minutes, 0, 0);
+
+    return date;
   }
 
-  private formatDate(date: Date): string {
-    // Đảm bảo trả về yyyy-MM-dd chuẩn để so sánh chuỗi
+  private formatDate(date: Date | string): string {
     return formatDate(new Date(date), 'yyyy-MM-dd');
   }
+
+  private async getApplicableOverrides(
+    employeeId: string,
+    date: Date,
+    overrideId?: string,
+  ): Promise<BackdateOverride[]> {
+    this.logger.debug(`[Override] Fetching overrides for Emp: ${employeeId}, Date: ${date.toISOString()}`);
+
+    if (overrideId) {
+      this.logger.debug(`[Override] Finding specific overrideId: ${overrideId}`);
+      const override = await this.overrideRepo.findOneBy({ id: overrideId });
+      return override ? [override] : [];
+    }
+
+    const cacheKey = `overrides:emp:${employeeId}`;
+    let cachedOverrides: BackdateOverride[] = [];
+
+    try {
+      this.logger.debug(`[Override] Checking Redis cache with key: ${cacheKey}`);
+      // Đặt một biến start để track thời gian redis phản hồi
+      const start = Date.now();
+      const rawCache = await this.redis.getParse<any>(cacheKey);
+      if (rawCache) {
+        if (Array.isArray(rawCache)) {
+          cachedOverrides = rawCache;
+        } else if (typeof rawCache === 'object') {
+          // Xử lý trường hợp redis cache override thành object chứa index { "0": {...}, "1": {...}, "_cache": true }
+          cachedOverrides = Object.values(rawCache).filter((v: any) => v && typeof v === 'object' && v.id) as BackdateOverride[];
+        }
+      }
+      this.logger.debug(`[Override] Redis responded in ${Date.now() - start}ms. Count: ${cachedOverrides?.length || 0}`);
+    } catch (e) {
+      this.logger.error(`[Override] Redis Error for ${employeeId}: ${e.message}`, e.stack);
+    }
+
+    if (!cachedOverrides || cachedOverrides.length === 0) {
+      this.logger.debug(`[Override] No overrides found in cache.`);
+      return [];
+    }
+
+    const targetDateStr = this.formatDate(date);
+    const targetDate = new Date(targetDateStr);
+    this.logger.debug(`[Override] Filtering ${cachedOverrides.length} items for targetDate: ${targetDateStr}`);
+
+    const filtered = cachedOverrides.filter((o) => {
+      const from = new Date(this.formatDate(o.effective_from));
+      const to = o.effective_to ? new Date(this.formatDate(o.effective_to)) : null;
+
+      const isMatch = targetDate >= from && (!to || targetDate <= to);
+      return isMatch;
+    });
+
+    this.logger.debug(`[Override] Filter result: ${filtered.length} applicable overrides found.`);
+    return filtered;
+  }
+
+  private applyOverridesToContext(
+    context: CalculationContext,
+    overrides: BackdateOverride[],
+  ) {
+    if (!overrides.length) return;
+
+    this.logger.debug(`[Override] Applying ${overrides.length} overrides to context...`);
+
+    for (const [index, override] of overrides.entries()) {
+      if (!override.override_values) {
+        this.logger.warn(`[Override] Item at index ${index} has no override_values`);
+        continue;
+      }
+      const values = override.override_values;
+      this.logger.debug(`[Override] Processing [${index}] Type: ${override.entity_type} | ID: ${override.id}`);
+
+      switch (override.entity_type) {
+        case 'SHIFT':
+        case 'SHIFT_ASSIGNMENT':
+          if (context.shiftContext?.shift) {
+            const shiftData = values.shiftContext || values;
+
+            if (shiftData.startTime) {
+              context.shiftContext.shift.startTime = this.combineDateAndTime(context.date, shiftData.startTime);
+            }
+            if (shiftData.endTime) {
+              context.shiftContext.shift.endTime = this.combineDateAndTime(context.date, shiftData.endTime);
+            }
+            this.logger.debug(`[Override] Updated Shift: ${context.shiftContext.shift.startTime.toISOString()} to ${context.shiftContext.shift.endTime.toISOString()}`);
+          }
+          break;
+        case 'ATTENDANCE_GROUP':
+          if (context.employee?.attendanceGroup) {
+            this.logger.debug(`[Override] Overwriting Group props: ${Object.keys(values).join(', ')}`);
+            Object.assign(context.employee.attendanceGroup, values);
+          }
+          break;
+        case 'EMPLOYEE':
+          if (context.employee) {
+            this.logger.debug(`[Override] Overwriting Employee props: ${Object.keys(values).join(', ')}`);
+            Object.assign(context.employee, values);
+          }
+          break;
+        default:
+          this.logger.debug(`[Override] Unknown entity_type: ${override.entity_type}`);
+      }
+    }
+    this.logger.debug(`[Override] Application completed.`);
+  }
 }
+

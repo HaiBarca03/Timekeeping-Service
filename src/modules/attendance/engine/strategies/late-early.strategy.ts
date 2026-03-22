@@ -86,13 +86,13 @@ export class LateEarlyStrategy {
       // EARLY
       // =========================
       if (punch.check_out_time) {
-        const actualShiftStart = this.getShiftTimeOnDate(
+        const actualShiftEnd = this.getShiftTimeOnDate(
           punch.check_out_time,
-          shiftStart,
+          shiftEnd,
         );
         const earlyMin = Math.max(
           0,
-          differenceInMinutes(shiftEnd, actualShiftStart),
+          differenceInMinutes(actualShiftEnd, punch.check_out_time),
         );
         finalEarly = earlyMin;
 
