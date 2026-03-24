@@ -19,6 +19,10 @@ export class AttendancePunchRecord extends BaseEntity {
   @Column()
   lark_record_id: string;
 
+  @Index()
+  @Column({ type: 'integer', nullable: true })
+  day: number;
+
   @Column({ type: 'timestamp' })
   punch_time: Date;
 

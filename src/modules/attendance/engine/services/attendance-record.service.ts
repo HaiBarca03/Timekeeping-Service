@@ -7,16 +7,17 @@ export class AttendanceRecordService {
     const flattenedPunches: RawPunchInputDto[] = [];
 
     larkData.user_task_results.forEach((userTask) => {
+      const day = userTask.day;
       userTask.records.forEach((record) => {
         if (record.check_in_record?.record_id) {
           flattenedPunches.push(
-            this.mapToRawPunch(userTask, record, 'IN', companyId),
+            this.mapToRawPunch(userTask, record, 'IN', companyId, day),
           );
         }
 
         if (record.check_out_record?.record_id) {
           flattenedPunches.push(
-            this.mapToRawPunch(userTask, record, 'OUT', companyId),
+            this.mapToRawPunch(userTask, record, 'OUT', companyId, day),
           );
         }
       });
@@ -30,6 +31,7 @@ export class AttendanceRecordService {
     record: any,
     type: 'IN' | 'OUT',
     companyId: string,
+    day: number
   ): RawPunchInputDto {
     const isCheckIn = type === 'IN';
     const larkRecord = isCheckIn
@@ -43,6 +45,7 @@ export class AttendanceRecordService {
     return {
       company_id: companyId,
       external_user_id: userTask.user_id,
+      day: day,
       punch_time: new Date(
         parseInt(larkRecord.check_time) * 1000,
       ).toISOString(),

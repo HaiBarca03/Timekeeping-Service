@@ -14,7 +14,7 @@ import { WorkdayCalculationStrategy } from './strategies/workday-calculation.str
 import { ShiftResolverService } from './services/shift-resolver.service';
 import { RuleFactoryService } from './services/rule-factory.service';
 import { Shift } from 'src/modules/master-data/entities/shift.entity';
-import { LeaveManagementModule } from 'src/modules/approval-management/approval-management.module';
+import { ApprovalManagementModule } from 'src/modules/approval-management/approval-management.module';
 import { AttendanceMethod } from 'src/modules/master-data/entities/attendance-method.entity';
 import { AttendanceRecordService } from './services/attendance-record.service';
 import { LeaveStrategy } from './strategies/leave.strategy';
@@ -24,7 +24,7 @@ import { Holiday } from '../entities/holidays.entity';
 import { BreakTimeStrategy } from './strategies/break-time.strategy';
 import { LeavePolicyRule } from 'src/modules/master-data/entities/leave-policy-rule.entity';
 import { BackdateOverride } from '../entities/backdate_overrides.entity';
-import { RedisModule } from 'src/redis/redis.module';
+// import { RedisModule } from 'src/redis/redis.module';
 import { SwapStrategy } from './strategies/swap.strategy';
 import { MaternityStrategy } from './strategies/maternity.strategy';
 import { CorrectionStrategy } from './strategies/correction.strategy';
@@ -43,8 +43,8 @@ import { CorrectionStrategy } from './strategies/correction.strategy';
       LeavePolicyRule,
       Shift,
     ]),
-    RedisModule,
-    forwardRef(() => LeaveManagementModule),
+    // RedisModule,
+    forwardRef(() => ApprovalManagementModule),
   ],
   providers: [
     AttendanceEngine,

@@ -7,9 +7,7 @@ import {
 import { RequestDetailTimeOff } from './entities/request-detail-time-off.entity';
 import { Employee } from '../master-data/entities/employee.entity';
 import { LeaveType } from '../master-data/entities/leave-type.entity';
-import { InjectQueue } from '@nestjs/bullmq';
-import { Queue } from 'bullmq';
-import { JOB_NAMES, QUEUE_NAMES } from 'src/constants';
+import { AttendanceEngine } from '../attendance/engine/attendance.engine';
 
 @Injectable()
 export class ApprovalManagementService {
@@ -17,10 +15,8 @@ export class ApprovalManagementService {
 
   constructor(
     private dataSource: DataSource,
-
-    @InjectQueue(QUEUE_NAMES.CALCULATE_DAILY)
-    private attendanceQueue: Queue,
-  ) {}
+    private attendanceEngine: AttendanceEngine,
+  ) { }
 
   async importFromExternalSource(payload: any, companyId: string) {
     this.logger.log(`>>> BẮT ĐẦU IMPORT: companyId=${companyId}`);
@@ -94,17 +90,14 @@ export class ApprovalManagementService {
 
         const date = new Date(fields['Thời gian bắt đầu']);
 
-        await this.attendanceQueue.add(
-          JOB_NAMES.CALCULATE_DAILY,
-          {
-            employee_id: employee.id,
-            date: date,
-          },
-          {
-            jobId: `calc-${employee.id}-${date.toISOString().split('T')[0]}`,
-            removeOnComplete: true,
-          },
-        );
+        try {
+          await this.attendanceEngine.calculateDailyForEmployee(employee.id, date);
+          this.logger.log(`[SYNC CALC] Successfully calculated for employee ${employee.id} on ${date.toISOString().split('T')[0]}`);
+        } catch (calcError) {
+          this.logger.error(`[SYNC CALC ERROR] Failed to calculate for employee ${employee.id}: ${calcError.message}`);
+          // Note: recalculation error might not need to rollback transaction if we want to save the request anyway.
+          // But here I follow the user's "nhận vào rồi tính toán lại" logic.
+        }
 
         // 5. Khởi tạo/Cập nhật RequestDetailTimeOff
         let detail = await queryRunner.manager.findOne(RequestDetailTimeOff, {

@@ -23,6 +23,10 @@ export class RawPunchInputDto {
   @IsDateString()
   punch_time: string;
 
+  @ApiProperty({ example: 23 })
+  @IsNumber()
+  day: number;
+
   @ApiProperty({ example: 'recxxxxxx' })
   @IsString()
   lark_record_id: string;

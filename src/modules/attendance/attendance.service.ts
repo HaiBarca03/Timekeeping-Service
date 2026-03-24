@@ -6,15 +6,12 @@ import { BatchPunchResult } from './engine/dto/batch-punch-response';
 import { InjectRepository } from '@nestjs/typeorm';
 import { AttendancePunchRecord } from './entities/attendance-punch-record.entity';
 import { Between, In, Repository } from 'typeorm';
-import { InjectQueue } from '@nestjs/bullmq';
 import { JOB_NAMES, QUEUE_NAMES } from 'src/constants';
-import { Queue } from 'bullmq';
 import { Employee } from '../master-data/entities/employee.entity';
 import { AttendanceMonthlyTimesheet } from './entities/attendance-monthly-timesheet.entity';
 import { format } from 'date-fns';
 import { ShiftAssignment } from './entities/shift-assignment.entity';
 import { BackdateOverride } from './entities/backdate_overrides.entity';
-import { RedisService } from 'src/redis/redis.service';
 import { AttendanceJob } from './dto/attendance-job';
 
 @Injectable()
@@ -40,12 +37,7 @@ export class AttendanceService {
 
     @InjectRepository(BackdateOverride)
     private overrideRepo: Repository<BackdateOverride>,
-
-    @InjectQueue(QUEUE_NAMES.CALCULATE_DAILY)
-    private attendanceQueue: Queue,
-
-    private readonly redis: RedisService,
-  ) {}
+  ) { }
 
   async processBatchPunches(
     inputs: RawPunchInputDto[],
@@ -54,14 +46,19 @@ export class AttendanceService {
       return {
         savedCount: 0,
         savedIds: [],
+        total: 0,
+        failedCount: 0,
         message: 'No punches received.',
       };
     }
-    // console.log('inputs',inputs)
+
+    this.logger.log(`Processing batch of ${inputs.length} punches...`);
     const companyId = inputs[0].company_id;
+    const errors: Array<{ external_user_id: string; reason: string }> = [];
+    const totalCount = inputs.length;
 
+    // 1. Lọc và ánh xạ Employee
     const externalIds = [...new Set(inputs.map((i) => i.external_user_id))];
-
     const employees = await this.employeeRepo.find({
       where: {
         companyId,
@@ -72,69 +69,121 @@ export class AttendanceService {
 
     const employeeMap = new Map(employees.map((e) => [e.userId, e.id]));
 
-    const validEntities = inputs
-      .map((input) => {
-        const employeeId = employeeMap.get(input.external_user_id);
+    // Tìm các ID không tồn tại trong DB (nhưng có trong inputs)
+    externalIds.forEach(id => {
+      if (!employeeMap.has(id)) {
+        errors.push({ external_user_id: id, reason: 'Employee not found in timekeeping system' });
+      }
+    });
 
-        if (!employeeId) {
-          console.log('Employee not found:', input.external_user_id);
-          return null;
-        }
-
-        return this.punchRecordRepo.create({
+    // 2. Chuẩn bị entities hợp lệ
+    const validEntities: AttendancePunchRecord[] = [];
+    for (const input of inputs) {
+      const employeeId = employeeMap.get(input.external_user_id);
+      if (employeeId) {
+        validEntities.push(this.punchRecordRepo.create({
           ...input,
           employee_id: employeeId,
-        });
-      })
-      .filter((entity): entity is AttendancePunchRecord => entity !== null);
-
-    if (!validEntities.length) {
-      return {
-        savedCount: 0,
-        savedIds: [],
-        message: 'No valid employees found.',
-      };
-    }
-
-    const result = await this.punchRecordRepo.insert(validEntities);
-    const savedIds = result.identifiers.map((id) => id.id);
-
-    const jobMap = new Map<string, { employee_id: string; date: string }>();
-
-    for (const entity of validEntities) {
-      const punchDate = new Date(entity.punch_time);
-      const dateKey = punchDate.toISOString().slice(0, 10); // yyyy-mm-dd
-
-      const key = `${entity.employee_id}-${dateKey}`;
-
-      if (!jobMap.has(key)) {
-        jobMap.set(key, {
-          employee_id: entity.employee_id,
-          date: dateKey,
-        });
+        }));
       }
     }
 
-    const uniqueJobs = Array.from(jobMap.values());
-
-    if (uniqueJobs.length) {
-      await this.attendanceQueue.addBulk(
-        uniqueJobs.map((job) => ({
-          name: JOB_NAMES.CALCULATE_DAILY,
-          data: job,
-          opts: {
-            removeOnComplete: true,
-            jobId: `calc-${job.employee_id}-${job.date}`,
-          },
-        })),
-      );
+    if (validEntities.length === 0) {
+      return {
+        total: totalCount,
+        savedCount: 0,
+        failedCount: errors.length,
+        errors,
+        message: 'No valid records to save.',
+      };
     }
 
+    // 3. Insert theo chunk để tối ưu và cô lập lỗi
+    const CHUNK_SIZE = 500;
+    let savedCountValue = 0;
+    const savedIds: string[] = [];
+
+    for (let i = 0; i < validEntities.length; i += CHUNK_SIZE) {
+      const chunk = validEntities.slice(i, i + CHUNK_SIZE);
+      try {
+        const result = await this.punchRecordRepo.insert(chunk);
+        savedCountValue += chunk.length;
+        savedIds.push(...result.identifiers.map(id => String(id.id)));
+      } catch (chunkError) {
+        this.logger.error(`Error in chunk starting at ${i}: ${chunkError.message}. Falling back to individual inserts for this chunk.`);
+
+        // Nếu chunk lỗi, thử insert từng cái để biết cái nào lỗi cụ thể
+        for (const entity of chunk) {
+          try {
+            const result = await this.punchRecordRepo.insert(entity);
+            savedCountValue += 1;
+            savedIds.push(String(result.identifiers[0].id));
+          } catch (individualError) {
+            errors.push({
+              external_user_id: (entity as any).external_user_id || 'unknown',
+              reason: `Database error: ${individualError.message}`,
+            });
+          }
+        }
+      }
+    }
+
+    this.logger.log(`Batch complete. Saved: ${savedCountValue}, Errors: ${errors.length}`);
+
     return {
-      savedCount: savedIds.length,
-      savedIds: savedIds.map(String),
-      message: 'Lark punches recorded and queued successfully.',
+      total: totalCount,
+      savedCount: savedCountValue,
+      failedCount: errors.length,
+      savedIds,
+      errors: errors.length > 50 ? [...errors.slice(0, 50), { external_user_id: '...', reason: `And ${errors.length - 50} more errors...` }] : errors,
+      message: errors.length > 0 ? 'Batch processed with some errors.' : 'Batch processed successfully.',
     };
+  }
+
+  async calculateDailyBatch(companyId: string, dateStr?: string) {
+    let date: Date;
+    if (dateStr) {
+      date = new Date(dateStr);
+    } else {
+      // Mặc định là ngày n-1 (hôm qua)
+      date = new Date();
+      date.setDate(date.getDate() - 1);
+    }
+
+    const dateOnly = this.formatDate(date);
+    this.logger.log(
+      `[Batch Calc] Starting calculation for company ${companyId} on date ${dateOnly}`,
+    );
+
+    // 1. Lấy danh sách nhân viên trong công ty
+    const employees = await this.employeeRepo.find({
+      where: { companyId },
+      select: ['id'],
+    });
+
+    this.logger.log(`Found ${employees.length} employees to process.`);
+
+    const results = {
+      total: employees.length,
+      success: 0,
+      failed: 0,
+    };
+
+    // 2. Lặp và tính toán
+    for (const emp of employees) {
+      try {
+        await this.attendanceEngine.calculateDailyForEmployee(emp.id, date);
+        results.success++;
+      } catch (error) {
+        this.logger.error(
+          `Failed to calculate for employee ${emp.id}: ${error.message}`,
+        );
+        results.failed++;
+      }
+    }
+
+    this.logger.log(`[Batch Calc] Finished: ${results.success} success, ${results.failed} failed.`);
+    return results;
   }
 
   async calculateDailyTimesheet(
@@ -329,12 +378,7 @@ export class AttendanceService {
       }),
     );
 
-    // Đẩy job quét và nạp cache
-    await this.attendanceQueue.add(
-      JOB_NAMES.SCAN_AFFECTED_EMPLOYEES,
-      { overrideId: override.id },
-      { jobId: `scan-override-${override.id}`, removeOnComplete: true },
-    );
+    // Xử lý quét và tính toán (Đã tách riêng theo yêu cầu)
     return override;
   }
 
@@ -349,11 +393,12 @@ export class AttendanceService {
     );
 
     this.logger.log(
-      `[CACHE] Đang làm nóng cache cho ${affectedEmpIds.length} nhân viên...`,
+      `[OVERRIDE] Đang xử lý ${affectedEmpIds.length} nhân viên bị ảnh hưởng...`,
     );
-    for (const empId of affectedEmpIds) {
-      await this.refreshEmployeeOverrideCache(empId, override.company_id);
-    }
+    // Bỏ qua cache warming vì không còn Redis
+    // for (const empId of affectedEmpIds) {
+    //   await this.refreshEmployeeOverrideCache(empId, override.company_id);
+    // }
 
     const dates = this.getDatesBetween(
       new Date(override.effective_from),
@@ -376,24 +421,19 @@ export class AttendanceService {
       }
     }
 
-    const chunks = this.chunkArray(jobs, 1000);
-    for (const chunk of chunks) {
-      await this.attendanceQueue.addBulk(
-        chunk.map((j) => ({
-          name: JOB_NAMES.CALCULATE_DAILY,
-          data: {
-            employee_id: j.employee_id,
-            date: j.date,
-            override_id: override.id,
-          },
-          opts: {
-            jobId: `calc-${override.id}-${j.employee_id}-${j.date}`,
-            removeOnComplete: true,
-            removeOnFail: 1000,
-            attempts: 1,
-          },
-        })),
-      );
+    this.logger.log(`[OVERRIDE] Total calculation jobs: ${jobs.length}`);
+    for (const j of jobs) {
+      try {
+        await this.attendanceEngine.calculateDailyForEmployee(
+          j.employee_id,
+          new Date(j.date),
+          override.id,
+        );
+      } catch (error) {
+        this.logger.error(
+          `Error calculating for employee ${j.employee_id} on ${j.date}: ${error.message}`,
+        );
+      }
     }
 
     await this.overrideRepo.update(override.id, { recalc_status: 'COMPLETED' });
@@ -501,113 +541,14 @@ export class AttendanceService {
     }
   }
 
+  /* 
   private async refreshEmployeeOverrideCache(
     employeeId: string,
     companyId: string,
   ) {
-    console.log(
-      '================ DEBUG refreshEmployeeOverrideCache =================',
-    );
-    console.log('[INPUT]', { employeeId, companyId });
-
-    // 1. Lấy employee
-    const employee = await this.employeeRepo.findOne({
-      where: { id: employeeId, companyId: companyId },
-      relations: ['attendanceGroup', 'departments'],
-    });
-
-    console.log('[EMPLOYEE]', employee);
-
-    if (!employee) {
-      console.log('[EXIT] employee not found');
-      return;
-    }
-
-    // 2. Lấy shift assignments
-    const assignments = await this.shiftAssignmentRepo.find({
-      where: { employeeId, companyId, isActive: true },
-      select: ['shiftId'],
-    });
-
-    console.log('[ASSIGNMENTS]', assignments);
-
-    const shiftIds = [...new Set(assignments.map((a) => a.shiftId))];
-
-    console.log('[SHIFT IDS]', shiftIds);
-
-    // 3. Build identityIds
-    const identityIds = {
-      employee: employeeId,
-      attendanceGroup: employee.attendanceGroup?.id,
-      departments: employee.departments?.map((d) => d.id) || [],
-      shiftIds,
-      defaultShiftId: employee.attendanceGroup?.defaultShiftId,
-    };
-
-    console.log('[IDENTITY IDS]', identityIds);
-
-    // 4. Query overrides
-    const whereConditions: any[] = [
-      { entity_type: 'EMPLOYEE', entity_id: employeeId, is_active: true },
-    ];
-
-    if (identityIds.attendanceGroup) {
-      whereConditions.push({
-        entity_type: 'ATTENDANCE_GROUP',
-        entity_id: identityIds.attendanceGroup,
-        is_active: true,
-      });
-    }
-
-    if (identityIds.departments.length > 0) {
-      whereConditions.push({
-        entity_type: 'DEPARTMENT',
-        entity_id: In(identityIds.departments),
-        is_active: true,
-      });
-    }
-
-    if (identityIds.shiftIds.length > 0) {
-      whereConditions.push({
-        entity_type: 'SHIFT',
-        entity_id: In(identityIds.shiftIds),
-        is_active: true,
-      });
-    }
-
-    if (identityIds.defaultShiftId) {
-      whereConditions.push({
-        entity_type: 'SHIFT',
-        entity_id: identityIds.defaultShiftId,
-        is_active: true,
-      });
-    }
-
-    console.log('[WHERE CONDITIONS]', JSON.stringify(whereConditions, null, 2));
-
-    const allActive = await this.overrideRepo.find({
-      where: whereConditions,
-      order: { createdAt: 'ASC' } as any,
-    });
-
-    console.log('[OVERRIDES FOUND]', allActive);
-    console.log('[OVERRIDE COUNT]', allActive.length);
-
-    // 5. Cache
-    const cacheKey = `overrides:emp:${employeeId}`;
-
-    if (allActive.length > 0) {
-      const sevenDaysInMs = 86400 * 7 * 1000;
-
-      await this.redis.setParse(cacheKey, allActive, sevenDaysInMs);
-
-      console.log('[CACHE SET]', cacheKey);
-    } else {
-      await this.redis.client.del(cacheKey);
-
-      console.log('[CACHE DEL]', cacheKey);
-    }
+    // ... removed Redis cache logic ...
   }
+  */
 
   private formatDate(date: Date): string {
     const d = new Date(date);

@@ -22,7 +22,7 @@ import { Employee } from 'src/modules/master-data/entities/employee.entity';
 import { LeaveStrategy } from './strategies/leave.strategy';
 import { StorePunchStrategy } from './strategies/store-punch.strategy';
 import { BackdateOverride } from '../entities/backdate_overrides.entity';
-import { RedisService } from 'src/redis/redis.service';
+// import { RedisService } from 'src/redis/redis.service';
 import { ShiftAssignment } from '../entities/shift-assignment.entity';
 import { formatDate } from 'date-fns';
 import { SwapStrategy } from './strategies/swap.strategy';
@@ -49,7 +49,7 @@ export class AttendanceEngine {
     @InjectRepository(BackdateOverride)
     private overrideRepo: Repository<BackdateOverride>,
 
-    private readonly redis: RedisService,
+    // private readonly redis: RedisService,
 
     private shiftResolver: ShiftResolverService,
     private punchStrategy: PunchProcessingStrategy,
@@ -358,7 +358,9 @@ export class AttendanceEngine {
     date: Date,
     overrideId?: string,
   ): Promise<BackdateOverride[]> {
-    this.logger.debug(`[Override] Fetching overrides for Emp: ${employeeId}, Date: ${date.toISOString()}`);
+    this.logger.debug(
+      `[Override] Fetching overrides for Emp: ${employeeId}, Date: ${date.toISOString()}`,
+    );
 
     if (overrideId) {
       this.logger.debug(`[Override] Finding specific overrideId: ${overrideId}`);
@@ -366,45 +368,81 @@ export class AttendanceEngine {
       return override ? [override] : [];
     }
 
-    const cacheKey = `overrides:emp:${employeeId}`;
-    let cachedOverrides: BackdateOverride[] = [];
-
-    try {
-      this.logger.debug(`[Override] Checking Redis cache with key: ${cacheKey}`);
-      // Đặt một biến start để track thời gian redis phản hồi
-      const start = Date.now();
-      const rawCache = await this.redis.getParse<any>(cacheKey);
-      if (rawCache) {
-        if (Array.isArray(rawCache)) {
-          cachedOverrides = rawCache;
-        } else if (typeof rawCache === 'object') {
-          // Xử lý trường hợp redis cache override thành object chứa index { "0": {...}, "1": {...}, "_cache": true }
-          cachedOverrides = Object.values(rawCache).filter((v: any) => v && typeof v === 'object' && v.id) as BackdateOverride[];
-        }
-      }
-      this.logger.debug(`[Override] Redis responded in ${Date.now() - start}ms. Count: ${cachedOverrides?.length || 0}`);
-    } catch (e) {
-      this.logger.error(`[Override] Redis Error for ${employeeId}: ${e.message}`, e.stack);
-    }
-
-    if (!cachedOverrides || cachedOverrides.length === 0) {
-      this.logger.debug(`[Override] No overrides found in cache.`);
-      return [];
-    }
-
     const targetDateStr = this.formatDate(date);
     const targetDate = new Date(targetDateStr);
-    this.logger.debug(`[Override] Filtering ${cachedOverrides.length} items for targetDate: ${targetDateStr}`);
 
-    const filtered = cachedOverrides.filter((o) => {
+    // Thay vì dùng Redis, ta truy vấn trực tiếp DB
+    // Logic này mô phỏng lại những gì refreshEmployeeOverrideCache đã làm (lấy tất cả override liên quan đến NV)
+    // Nhưng tối ưu hơn bằng cách chỉ lấy những cái đang có hiệu lực tại targetDate
+    
+    // 1. Lấy thông tin Employee để biết group, department, shift
+    const employee = await this.employeeRepo.findOne({
+      where: { id: employeeId },
+      relations: ['attendanceGroup', 'departments'],
+    });
+
+    if (!employee) return [];
+
+    const assignments = await this.shiftAssignmentRepo.find({
+      where: { employeeId, isActive: true },
+      select: ['shiftId'],
+    });
+    const shiftIds = [...new Set(assignments.map((a) => a.shiftId))];
+
+    const whereConditions: any[] = [
+      { entity_type: 'EMPLOYEE', entity_id: employeeId, is_active: true },
+    ];
+
+    if (employee.attendanceGroup?.id) {
+      whereConditions.push({
+        entity_type: 'ATTENDANCE_GROUP',
+        entity_id: employee.attendanceGroup.id,
+        is_active: true,
+      });
+    }
+
+    if (employee.departments?.length > 0) {
+      whereConditions.push({
+        entity_type: 'DEPARTMENT',
+        entity_id: In(employee.departments.map(d => d.id)),
+        is_active: true,
+      });
+    }
+
+    if (shiftIds.length > 0) {
+      whereConditions.push({
+        entity_type: 'SHIFT',
+        entity_id: In(shiftIds),
+        is_active: true,
+      });
+    }
+
+    if (employee.attendanceGroup?.defaultShiftId) {
+      whereConditions.push({
+        entity_type: 'SHIFT',
+        entity_id: employee.attendanceGroup.defaultShiftId,
+        is_active: true,
+      });
+    }
+
+    const allActive = await this.overrideRepo.find({
+      where: whereConditions,
+      order: { createdAt: 'ASC' } as any,
+    });
+
+    const filtered = allActive.filter((o) => {
       const from = new Date(this.formatDate(o.effective_from));
-      const to = o.effective_to ? new Date(this.formatDate(o.effective_to)) : null;
+      const to = o.effective_to
+        ? new Date(this.formatDate(o.effective_to))
+        : null;
 
       const isMatch = targetDate >= from && (!to || targetDate <= to);
       return isMatch;
     });
 
-    this.logger.debug(`[Override] Filter result: ${filtered.length} applicable overrides found.`);
+    this.logger.debug(
+      `[Override] DB Filter result: ${filtered.length} applicable overrides found.`,
+    );
     return filtered;
   }
 

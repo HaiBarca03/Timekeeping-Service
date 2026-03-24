@@ -15,7 +15,6 @@ import { QUEUE_NAMES } from 'src/constants';
 import { AttendanceController } from './attendance.controller';
 import { ShiftAssignment } from './entities/shift-assignment.entity';
 import { BackdateOverride } from './entities/backdate_overrides.entity';
-import { RedisModule } from 'src/redis/redis.module';
 
 @Module({
   imports: [
@@ -29,14 +28,14 @@ import { RedisModule } from 'src/redis/redis.module';
       BackdateOverride,
       Employee,
     ]),
-    RedisModule,
+    // RedisModule,
     forwardRef(() => AttendanceEngineModule),
-    BullModule.registerQueue({
-      name: QUEUE_NAMES.CALCULATE_DAILY,
-    }),
+    // BullModule.registerQueue({
+    //   name: QUEUE_NAMES.CALCULATE_DAILY,
+    // }),
   ],
   controllers: [AttendanceController],
   providers: [AttendanceService],
   exports: [AttendanceEngineModule, TypeOrmModule, AttendanceService],
 })
-export class AttendanceModule {}
+export class AttendanceModule { }

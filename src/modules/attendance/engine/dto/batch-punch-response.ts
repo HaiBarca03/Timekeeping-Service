@@ -25,4 +25,22 @@ export class BatchPunchResult {
     description: 'Thông điệp trả về',
   })
   message?: string;
+
+  @ApiProperty({ example: 100 })
+  total: number;
+
+  @ApiProperty({ example: 5 })
+  failedCount: number;
+
+  @ApiPropertyOptional({
+    type: 'array',
+    items: {
+      type: 'object',
+      properties: {
+        external_user_id: { type: 'string' },
+        reason: { type: 'string' },
+      },
+    },
+  })
+  errors?: Array<{ external_user_id: string; reason: string }>;
 }

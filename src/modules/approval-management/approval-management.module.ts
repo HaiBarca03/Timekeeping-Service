@@ -5,8 +5,6 @@ import { ApprovalManagementController } from './approval-management.controller';
 import { AttendanceModule } from '../attendance/attendance.module';
 import { Employee } from '../master-data/entities/employee.entity';
 import { AttendanceDailyTimesheet } from '../attendance/entities/attendance-daily-timesheet.entity';
-import { BullModule } from '@nestjs/bullmq/dist/bull.module';
-import { QUEUE_NAMES } from 'src/constants/queue.constants';
 import { RequestDetailTimeOff } from './entities/request-detail-time-off.entity';
 import { RequestDetailOvertime } from './entities/request-detail-overtime.entity';
 import { RequestDetailAdjustment } from './entities/request-detail-adjustment.entity';
@@ -22,13 +20,10 @@ import { AttendanceRequest } from './entities/attendance-request.entity';
       RequestDetailOvertime,
       RequestDetailTimeOff,
     ]),
-    BullModule.registerQueue({
-      name: QUEUE_NAMES.CALCULATE_DAILY,
-    }),
     forwardRef(() => AttendanceModule),
   ],
   controllers: [ApprovalManagementController],
   providers: [ApprovalManagementService],
   exports: [ApprovalManagementService, TypeOrmModule],
 })
-export class ApprovalManagementModule {}
+export class ApprovalManagementModule { }
