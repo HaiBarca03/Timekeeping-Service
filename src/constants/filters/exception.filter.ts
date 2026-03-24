@@ -5,7 +5,6 @@ import {
   HttpException,
   HttpStatus,
 } from '@nestjs/common';
-import { GqlArgumentsHost } from '@nestjs/graphql'; // Cần import cái này
 import { ValidationError } from 'class-validator';
 import { Response } from 'express';
 import { BusinessCodes } from 'src/constants/business.code';
@@ -22,15 +21,13 @@ export class AllExceptionsFilter implements ExceptionFilter {
   }
 
   catch(exception: unknown, host: ArgumentsHost) {
-    if ((host as any).getType() === 'graphql') {
-      return exception; 
-    }
-
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
 
     let status =
-      exception instanceof HttpException ? exception.getStatus() : 500;
+      exception instanceof HttpException
+        ? exception.getStatus()
+        : HttpStatus.INTERNAL_SERVER_ERROR;
 
     let message: any = 'Internal server error';
     let businessCode = -1;
@@ -62,7 +59,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
       code: status,
       message,
       data: null,
-      businessCode: businessCode,
+      businessCode,
     });
   }
 }

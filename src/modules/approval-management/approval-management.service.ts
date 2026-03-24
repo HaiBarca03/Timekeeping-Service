@@ -12,8 +12,8 @@ import { Queue } from 'bullmq';
 import { JOB_NAMES, QUEUE_NAMES } from 'src/constants';
 
 @Injectable()
-export class LeaveManagementService {
-  private readonly logger = new Logger(LeaveManagementService.name);
+export class ApprovalManagementService {
+  private readonly logger = new Logger(ApprovalManagementService.name);
 
   constructor(
     private dataSource: DataSource,

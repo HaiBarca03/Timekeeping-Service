@@ -705,103 +705,200 @@ export const initDataSeed = async (dataSource: DataSource) => {
   // ──────────────────────────────────────────────
 
   const employeeRepo = dataSource.getRepository(Employee);
-  // const employees: Partial<Employee>[] = [];
+
+  // Lấy các dữ liệu tham chiếu
   const empGroup = savedGroups.find((g) => g.code === '7617676707973074458');
-  const workLocations = savedLocations.find((g) => g.id === '1');
 
-  const departments = await dataSource
-    .getRepository(Department)
-    .find({ where: { companyId } });
+  // workLocations không có field isHeadOffice, ta tìm theo tên
+  const workLocationOffice = savedLocations.find((l) => l.locationName && !l.locationName.includes('Cửa hàng')) || savedLocations[0];
+  const workLocationStore = savedLocations.find((l) => l.locationName && l.locationName.includes('Cửa hàng')) || savedLocations[0];
 
-  // for (let i = 1; i <= 40; i++) {
-  //   const isFemale = faker.datatype.boolean();
-  //   const isResigned = i <= 4; // 4 người đã nghỉ
-  //   const isMaternity = isFemale && i % 7 === 0;
-  //   const isProbation = i % 5 === 0;
-  //   const isPartTime = i % 9 === 0;
-  //   const is_saturday_off = i % 2 === 0;
-  //   const is_maternity_shift = i % 9 === 0;
-  //   const is_angel = i % 2 === 0;
+  const departments = await dataSource.getRepository(Department).find({ where: { companyId } });
+  const deptOffice = departments.find(d => d.departmentCode === 'P_BACKEND') || departments[0];
+  const deptStore = departments.find(d => d.departmentCode === 'P_STORE') || departments[0];
 
-  //   const joinedAt = faker.date.past({ years: 4 });
-  //   const resignedAt = isResigned
-  //     ? faker.date.between({ from: joinedAt, to: new Date() })
-  //     : null;
-
-  //   employees.push({
-  //     companyId,
-  //     userId: `${1000 + i}`,
-  //     originId: '604465',
-  //     userName: `user${i}`,
-  //     fullName: faker.person.fullName({ sex: isFemale ? 'female' : 'male' }),
-  //     email: `user${i}@upbase.global`,
-  //     phoneNumber: faker.phone.number(),
-  //     gender: isFemale ? 'FEMALE' : 'MALE',
-  //     birthday: faker.date.birthdate({ min: 22, max: 48, mode: 'age' }),
-  //     joinedAt,
-  //     resignedAt,
-  //     workLocation: workLocations,
-  //     departments: faker.helpers.arrayElements(departments, { min: 1, max: 1 }),
-  //     attendanceGroup: empGroup,
-  //     jobLevel: randomFromArray(jobLevels),
-  //     employeeType: isProbation
-  //       ? empTypes.find((t) => t.code === 'PROBATION')!
-  //       : isPartTime
-  //         ? empTypes.find((t) => t.code === 'PART_TIME')!
-  //         : randomFromArray(empTypes),
-  //     employeeStatus: resignedAt
-  //       ? empStatuses.find((s) => s.code === 'RESIGNED')!
-  //       : isMaternity
-  //         ? empStatuses.find((s) => s.code === 'MATERNITY_LEAVE')!
-  //         : randomFromArray(
-  //             empStatuses.filter(
-  //               (s) => !['RESIGNED', 'TERMINATED'].includes(s.code!),
-  //             ),
-  //           ),
-  //     attendanceMethod: randomFromArray(attMethods),
-  //     is_saturday_off: is_saturday_off,
-  //     is_angel: is_angel,
-  //     is_maternity_shift: is_maternity_shift,
-  //     leavePolicy: leavePolicy,
-  //     larkId: `lark_${10000 + i}`,
-  //   });
-  // }
-
-  // await employeeRepo.save(employees);
-
-  const isFemale = faker.datatype.boolean();
-  const joinedAt = faker.date.past({ years: 4 });
-
-  const employees = [
+  const testCases = [
     {
+      id: '1001',
+      userName: 'vp_chuan',
+      fullName: 'NV VP Đi Chuẩn',
+      groupCode: '7617676707973074458', // Ca VP 1
+      isMaternity: false,
+      isStore: false,
+    },
+    {
+      id: '1002',
+      userName: 'vp_dimuon',
+      fullName: 'NV VP Đi Muộn',
+      groupCode: '7617676707973074458',
+      isMaternity: false,
+      isStore: false,
+    },
+    {
+      id: '1003',
+      userName: 'vp_vesom',
+      fullName: 'NV VP Về Sớm',
+      groupCode: '7617676707973074458',
+      isMaternity: false,
+      isStore: false,
+    },
+    {
+      id: '1004',
+      userName: 'vp_quen_cham',
+      fullName: 'NV VP Quên Chấm Công',
+      groupCode: '7617676707973074458',
+      isMaternity: false,
+      isStore: false,
+    },
+    {
+      id: '1005',
+      userName: 'ts_muon_1h',
+      fullName: 'NV Thai Sản Đi Muộn 1h',
+      groupCode: '7617687309982371354', // Ca thai sản 1
+      isMaternity: true,
+      isStore: false,
+    },
+    {
+      id: '1006',
+      userName: 'ts_ve_som_1h',
+      fullName: 'NV Thai Sản Về Sớm 1h',
+      groupCode: '7617689477007330840', // Ca thai sản 2
+      isMaternity: true,
+      isStore: false,
+    },
+    {
+      id: '1007',
+      userName: 'ch_ca_sang',
+      fullName: 'NV Cửa Hàng Ca Sáng',
+      groupCode: '7617745162118123031', // Ca cửa hàng
+      isMaternity: false,
+      isStore: true,
+    },
+    {
+      id: '1008',
+      userName: 'ch_ca_chieu',
+      fullName: 'NV Cửa Hàng Ca Chiều',
+      groupCode: '7617745162118123031', // Ca cửa hàng
+      isMaternity: false,
+      isStore: true,
+    },
+    {
+      id: '1009',
+      userName: 'ch_xoay_ca',
+      fullName: 'NV Cửa Hàng Xoay Ca',
+      groupCode: '7617745162118123031', // Ca cửa hàng
+      isMaternity: false,
+      isStore: true,
+    },
+    {
+      id: '1010',
+      userName: 'vp_parttime',
+      fullName: 'NV VP Part-time',
+      groupCode: '7617676707973074458', // Ca VP 1
+      isPartTime: true,
+      isMaternity: false,
+      isStore: false,
+    },
+    {
+      id: '1011',
+      userName: 'vp_t7_off',
+      fullName: 'NV VP Nghỉ Thứ 7',
+      groupCode: '7617676707973074458', // Ca VP 1
+      isSaturdayOff: true,
+      isMaternity: false,
+      isStore: false,
+    },
+  ];
+
+  const employees: Employee[] = [];
+
+  for (const tc of testCases) {
+    const isFemale = tc.isMaternity ? true : faker.datatype.boolean();
+    const joinedAt = faker.date.past({ years: 4 });
+    const selectedGroup = savedGroups.find((g) => g.code === tc.groupCode) || empGroup;
+
+    let empType = empTypes.find((t) => t.code === 'OFFICIAL')!;
+    if (tc.isPartTime) empType = empTypes.find((t) => t.code === 'PART_TIME')!;
+    if (tc.isStore) empType = empTypes.find((t) => t.code === 'SHIFT_WORKER')!;
+
+    employees.push(employeeRepo.create({
       companyId,
-      userId: '1001',
-      originId: '604465', // Bây giờ chỉ có 1 người dùng mã này nên sẽ không lỗi
-      userName: 'user1',
-      fullName: faker.person.fullName({ sex: isFemale ? 'female' : 'male' }),
-      email: 'user1@upbase.global',
+      userId: tc.id,
+      originId: `604465_${tc.id}`,
+      userName: tc.userName,
+      fullName: tc.fullName,
+      email: `${tc.userName}@upbase.global`,
       phoneNumber: faker.phone.number(),
       gender: isFemale ? 'FEMALE' : 'MALE',
       birthday: faker.date.birthdate({ min: 22, max: 48, mode: 'age' }),
       joinedAt,
       resignedAt: null,
-      workLocation: workLocations, // Chọn địa điểm đầu tiên thay vì truyền cả mảng
-      departments: [departments[0]], // Chọn phòng ban đầu tiên
-      attendanceGroup: empGroup,
+      workLocation: tc.isStore ? workLocationStore : workLocationOffice,
+      departments: [tc.isStore ? deptStore : deptOffice],
+      attendanceGroup: selectedGroup,
       jobLevel: randomFromArray(jobLevels),
-      employeeType: empTypes.find((t) => t.code === 'OFFICIAL')!,
-      employeeStatus: empStatuses.find((s) => s.code === 'ACTIVE')!,
-      attendanceMethod: randomFromArray(attMethods),
-      is_saturday_off: false,
+      employeeType: empType,
+      employeeStatus: empStatuses.find((s) => s.code === 'WORKING') || empStatuses[0],
+      attendanceMethod: attMethods.find(m => m.code === 'TIME_MACHINE') || attMethods[0],
+      is_saturday_off: !!tc.isSaturdayOff,
       is_angel: false,
-      is_maternity_shift: false,
+      is_maternity_shift: !!tc.isMaternity,
       leavePolicy: leavePolicy,
-      larkId: 'lark_10001',
-    },
-  ];
+      larkId: `lark_${tc.id}`,
+    }));
+  }
 
-  await employeeRepo.save(employees);
-  console.log('--- Đã seed thành công 1 nhân viên duy nhất ---');
+  const savedEmployees = await employeeRepo.save(employees);
+  console.log(`--- Đã seed thành công ${savedEmployees.length} nhân viên test cases ---`);
+
+  // ──────────────────────────────────────────────
+  // 8. SHIFT ASSIGNMENT – Cho nhân viên phân ca cửa hàng
+  // ──────────────────────────────────────────────
+  const shiftAssignmentRepo = dataSource.getRepository(ShiftAssignment);
+  const shiftAssignmentsData: ShiftAssignment[] = [];
+
+  // Dùng luôn các ca cửa hàng có sẵn
+  const caCuaHang2 = savedShifts.find(s => s.code === 'Cacuahang2'); // 09:00 - 12:00
+  const caCuaHang4 = savedShifts.find(s => s.code === 'Cacuahang4'); // 15:00 - 18:00
+  const caCuaHang5 = savedShifts.find(s => s.code === 'Cacuahang5'); // 18:00 - 21:00
+
+  // Fix cứng ngày phân ca là 11/02/2026
+  const targetYear = 2026;
+  const targetMonth = 1; // 0-indexed, 1 = Tháng 2
+  const targetDay = 11;
+  const assignDate = new Date(Date.UTC(targetYear, targetMonth, targetDay));
+
+  for (const emp of savedEmployees) {
+    if (!emp.userName.startsWith('ch_')) continue;
+
+    let shiftToAssign: Shift | undefined = undefined;
+    if (emp.userName === 'ch_ca_sang' && caCuaHang2) {
+      shiftToAssign = caCuaHang2;
+    } else if (emp.userName === 'ch_ca_chieu' && caCuaHang5) {
+      shiftToAssign = caCuaHang5;
+    } else if (emp.userName === 'ch_xoay_ca') {
+      const isWeekend = assignDate.getUTCDay() === 0 || assignDate.getUTCDay() === 6;
+      shiftToAssign = isWeekend && caCuaHang4 ? caCuaHang4 : caCuaHang2;
+    }
+
+    if (shiftToAssign) {
+      shiftAssignmentsData.push(shiftAssignmentRepo.create({
+        companyId,
+        employeeId: emp.id,
+        storeId: workLocationStore.id,
+        date: assignDate,
+        shiftId: shiftToAssign.id,
+        onTime: new Date(Date.UTC(targetYear, targetMonth, targetDay, shiftToAssign.startTime.getUTCHours(), shiftToAssign.startTime.getUTCMinutes(), 0)),
+        offTime: new Date(Date.UTC(targetYear, targetMonth, targetDay, shiftToAssign.endTime.getUTCHours(), shiftToAssign.endTime.getUTCMinutes(), 0)),
+        isActive: true
+      }));
+    }
+  }
+
+  if (shiftAssignmentsData.length > 0) {
+    await shiftAssignmentRepo.save(shiftAssignmentsData);
+    console.log(`--- Đã seed thành công ${shiftAssignmentsData.length} phân ca (Shift Assignments) ---`);
+  }
 
   console.log('✅ Hoàn thành seed dữ liệu – đầy đủ các trường hợp nghiệp vụ');
 };

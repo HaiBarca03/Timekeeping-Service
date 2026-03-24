@@ -1,92 +1,72 @@
-import { ObjectType, Field, ID, Float } from '@nestjs/graphql';
 import { Entity, Column, Index, ManyToOne, JoinColumn } from 'typeorm';
 import { BaseEntity } from '../../../database/entities/base.entity';
 import { Company } from '../../master-data/entities/company.entity';
 import { Employee } from '../../master-data/entities/employee.entity';
 import { AttendanceDailyTimesheet } from './attendance-daily-timesheet.entity';
-import { GraphQLJSON } from 'graphql-type-json';
 
-@ObjectType()
 @Entity('attendance_punch_records')
 export class AttendancePunchRecord extends BaseEntity {
-  @Field(() => ID)
   @Column({ type: 'bigint' })
   company_id: string;
 
-  @Field(() => ID)
   @Column({ type: 'bigint' })
   employee_id: string;
 
-  @Field({ nullable: true })
   @Column({ type: 'bigint', nullable: true })
-  daily_timesheet_id: string;
+  daily_timesheet_id?: string | null;
 
-  @Field()
   @Index({ unique: true })
   @Column()
   lark_record_id: string;
 
-  @Field()
   @Column({ type: 'timestamp' })
   punch_time: Date;
 
-  @Field({ nullable: true })
-  @Column({ nullable: true })
-  punch_type: string;
-
-  @Field({ nullable: true })
-  @Column({ nullable: true })
-  punch_result: string;
-
-  @Field({ nullable: true })
-  @Column({ nullable: true })
-  source_type: string;
-
-  @Field(() => Float, { nullable: true })
-  @Column({ type: 'decimal', precision: 10, scale: 7, nullable: true })
-  latitude: number;
-
-  @Field(() => Float, { nullable: true })
-  @Column({ type: 'decimal', precision: 10, scale: 7, nullable: true })
-  longitude: number;
-
-  @Field({ nullable: true })
-  @Column({ nullable: true })
-  address: string;
-
-  @Field({ nullable: true })
-  @Column({ nullable: true })
-  device_id: string; // Thêm để đối soát thiết bị
-
-  @Field({ nullable: true })
-  @Column({ nullable: true })
-  ssid: string; // Thêm để kiểm tra Wi-Fi
-
-  @Field({ nullable: true })
   @Column({ type: 'text', nullable: true })
-  photo_url: string; // Lưu link ảnh từ Lark
+  punch_type?: string | null;
 
-  @Field({ nullable: true })
+  @Column({ type: 'text', nullable: true })
+  punch_result?: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  source_type?: string | null;
+
+  @Column({ type: 'decimal', precision: 10, scale: 7, nullable: true })
+  latitude?: number | null;
+
+  @Column({ type: 'decimal', precision: 10, scale: 7, nullable: true })
+  longitude?: number | null;
+
+  @Column({ type: 'text', nullable: true })
+  address?: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  device_id?: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  ssid?: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  photo_url?: string | null;
+
   @Column({ type: 'timestamp', nullable: true })
-  shift_time_target: Date; // Giờ chuẩn của ca mà Lark quy định
+  shift_time_target?: Date | null;
 
-  @Field(() => GraphQLJSON, { nullable: true })
   @Column({ type: 'jsonb', nullable: true })
-  raw_payload: any;
+  raw_payload?: Record<string, any> | null;
 
-  // Relationships
-  @Field(() => Company)
-  @ManyToOne(() => Company , company => company.attendancePunchRecords)
+  @ManyToOne(() => Company, (company) => company.attendancePunchRecords)
   @JoinColumn({ name: 'company_id' })
   company: Company;
 
-  @Field(() => Employee)
-  @ManyToOne(() => Employee , employee => employee.attendancePunchRecords)
+  @ManyToOne(() => Employee, (employee) => employee.attendancePunchRecords)
   @JoinColumn({ name: 'employee_id' })
   employee: Employee;
 
-  @Field(() => AttendanceDailyTimesheet)
-  @ManyToOne(() => AttendanceDailyTimesheet , dailyTimesheet => dailyTimesheet.punches)
+  @ManyToOne(
+    () => AttendanceDailyTimesheet,
+    (dailyTimesheet) => dailyTimesheet.punches,
+  )
   @JoinColumn({ name: 'daily_timesheet_id' })
   dailyTimesheet: AttendanceDailyTimesheet;
 }

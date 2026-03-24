@@ -1,8 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { AttendanceEngine } from './engine/attendance.engine';
 import { AttendanceDailyTimesheet } from './entities/attendance-daily-timesheet.entity';
-import { RawPunchInput } from './graphql/inputs/raw-punch.input';
-import { BatchPunchResult } from './graphql/types/batch-punch-response';
+import { RawPunchInputDto } from './engine/dto/raw-punch.input';
+import { BatchPunchResult } from './engine/dto/batch-punch-response';
 import { InjectRepository } from '@nestjs/typeorm';
 import { AttendancePunchRecord } from './entities/attendance-punch-record.entity';
 import { Between, In, Repository } from 'typeorm';
@@ -48,7 +48,7 @@ export class AttendanceService {
   ) {}
 
   async processBatchPunches(
-    inputs: RawPunchInput[],
+    inputs: RawPunchInputDto[],
   ): Promise<BatchPunchResult> {
     if (!inputs.length) {
       return {

@@ -5,7 +5,7 @@ import { CalculationContext } from '../dto/calculation-context.dto';
 import {
   AttendanceRequest,
   RequestType,
-} from '../../../leave-management/entities/attendance-request.entity';
+} from '../../../approval-management/entities/attendance-request.entity';
 import { ShiftContext } from '../dto/shift-context.dto';
 import { ShiftAssignment } from '../../entities/shift-assignment.entity';
 

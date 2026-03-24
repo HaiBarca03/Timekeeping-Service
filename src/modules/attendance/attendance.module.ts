@@ -2,7 +2,6 @@
 import { forwardRef, Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AttendanceEngine } from './engine/attendance.engine';
-import { AttendanceResolver } from './graphql/resolvers/attendance.resolver';
 import { AttendancePunchRecord } from './entities/attendance-punch-record.entity';
 import { AttendanceDailyPunch } from './entities/attendance-daily-punch.entity';
 import { AttendanceDailyTimesheet } from './entities/attendance-daily-timesheet.entity';
@@ -37,7 +36,7 @@ import { RedisModule } from 'src/redis/redis.module';
     }),
   ],
   controllers: [AttendanceController],
-  providers: [AttendanceService, AttendanceResolver],
+  providers: [AttendanceService],
   exports: [AttendanceEngineModule, TypeOrmModule, AttendanceService],
 })
 export class AttendanceModule {}

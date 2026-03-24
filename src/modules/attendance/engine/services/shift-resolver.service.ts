@@ -182,6 +182,7 @@ export class ShiftResolverService {
         isActive: true,
       },
       relations: ['shift', 'shift.restRule'],
+      order: { onTime: 'ASC' },
     });
 
     if (assignments.length === 0) {

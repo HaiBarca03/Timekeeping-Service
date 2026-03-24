@@ -14,7 +14,7 @@ import { WorkdayCalculationStrategy } from './strategies/workday-calculation.str
 import { ShiftResolverService } from './services/shift-resolver.service';
 import { RuleFactoryService } from './services/rule-factory.service';
 import { Shift } from 'src/modules/master-data/entities/shift.entity';
-import { LeaveManagementModule } from 'src/modules/leave-management/leave-management.module';
+import { LeaveManagementModule } from 'src/modules/approval-management/approval-management.module';
 import { AttendanceMethod } from 'src/modules/master-data/entities/attendance-method.entity';
 import { AttendanceRecordService } from './services/attendance-record.service';
 import { LeaveStrategy } from './strategies/leave.strategy';

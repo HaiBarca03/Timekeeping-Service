@@ -5,7 +5,7 @@ import { CalculationContext } from '../dto/calculation-context.dto';
 import {
   AttendanceRequest,
   RequestType,
-} from '../../../leave-management/entities/attendance-request.entity';
+} from '../../../approval-management/entities/attendance-request.entity';
 
 @Injectable()
 export class RemoteWorkStrategy {

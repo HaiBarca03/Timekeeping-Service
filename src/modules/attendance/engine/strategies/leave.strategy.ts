@@ -5,7 +5,7 @@ import { CalculationContext } from '../dto/calculation-context.dto';
 import {
   AttendanceRequest,
   RequestType,
-} from '../../../leave-management/entities/attendance-request.entity';
+} from '../../../approval-management/entities/attendance-request.entity';
 import { LeavePolicyRule } from '../../../master-data/entities/leave-policy-rule.entity';
 import { LeaveType } from '../../../master-data/entities/leave-type.entity';
 
