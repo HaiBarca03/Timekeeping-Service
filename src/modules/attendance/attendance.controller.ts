@@ -132,4 +132,14 @@ export class AttendanceController {
   ) {
     return await this.attendanceService.calculateDailyBatch(companyId, date);
   }
+
+  @Post('check-employee-calc')
+  @ApiQuery({ name: 'companyId', required: true })
+  @ApiQuery({ name: 'employeeId', required: true })
+  async checkEmployeeCalc(
+    @Query('companyId') companyId: string,
+    @Query('employeeId') employeeId: string,
+  ) {
+    return await this.attendanceService.calculateForEmployeeByPunchRecords(companyId, employeeId);
+  }
 }

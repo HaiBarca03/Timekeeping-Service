@@ -17,9 +17,6 @@ export class RequestDetailOvertime extends BaseEntity {
   @Column({ nullable: true })
   convert_type: string;
 
-  @Column()
-  ot_rule_id: number;
-
   @Column({ type: 'float', default: 1.0 })
   ratio_convert: number; // Hệ số (1.5, 2.0...)
 

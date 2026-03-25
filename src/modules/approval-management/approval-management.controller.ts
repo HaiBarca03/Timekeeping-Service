@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common';
 import { ApprovalManagementService } from './approval-management.service';
 import { ApiOperation } from '@nestjs/swagger';
-import { ImportLeaveDto } from './dto/import-leave.dto';
+import { ExternalApprovalPayloadDto } from './dto/external-approval.dto';
 
 @Controller('approval-management')
 export class ApprovalManagementController {
@@ -19,9 +19,9 @@ export class ApprovalManagementController {
   @ApiOperation({ summary: 'Import JSON thô từ Base' })
   async importData(
     @Query('companyId') companyId: string,
-    @Body() body: ImportLeaveDto,
+    @Body() body: ExternalApprovalPayloadDto,
   ) {
-    console.log('body', body);
+    console.log('body', JSON.stringify(body, null, 2));
     return await this.leaveService.importFromExternalSource(body, companyId);
   }
 }
