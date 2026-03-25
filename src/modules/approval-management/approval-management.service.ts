@@ -7,6 +7,7 @@ import { LeaveType } from '../master-data/entities/leave-type.entity';
 import { AttendanceEngine } from '../attendance/engine/attendance.engine';
 import { RequestDetailOvertime } from './entities/request-detail-overtime.entity';
 import { RequestDetailAdjustment } from './entities/request-detail-adjustment.entity';
+import { ExternalApprovalPayloadDto, ExternalApprovalProcess } from './dto/external-approval.dto';
 
 @Injectable()
 export class ApprovalManagementService {
@@ -17,7 +18,7 @@ export class ApprovalManagementService {
     private attendanceEngine: AttendanceEngine,
   ) { }
 
-  async importFromExternalSource(payload: any, companyId: string) {
+  async importFromExternalSource(payload: ExternalApprovalPayloadDto, companyId: string) {
     this.logger.log(`>>> BẮT ĐẦU IMPORT: companyId=${companyId}`);
 
     const items = payload?.data?.items || [];
@@ -33,13 +34,12 @@ export class ApprovalManagementService {
     try {
       for (const item of items) {
         const { record_id, fields } = item;
-        // Fix: Lấy approvalProcess từ đúng vị trí trong item
-        const approvalProcess = fields['Loại đơn'] || fields['Approval process'] || '';
+        const approvalProcess = fields.approval_process;
 
         this.logger.log(`--- Đang xử lý record_id: ${record_id} ---`);
 
-        const externalUserId = fields['Người lập phiếu']?.[0]?.id;
-        const leaveTypeName = fields['Chi tiết loại nghỉ'];
+        const externalUserId = fields.requester?.[0]?.id;
+        const leaveTypeName = fields.leave_type_detail;
 
         const employee = await queryRunner.manager.findOne(Employee, {
           where: { userId: externalUserId, companyId: companyId },
@@ -52,36 +52,42 @@ export class ApprovalManagementService {
 
         // Xác định loại đơn
         let type = RequestType.LEAVE;
-        const processStr = String(approvalProcess).toLowerCase();
-        if (processStr.includes('tăng ca')) type = RequestType.OVERTIME;
-        else if (processStr.includes('điều chỉnh')) type = RequestType.CORRECTION;
+        if (approvalProcess === ExternalApprovalProcess.OVERTIME) type = RequestType.OVERTIME;
+        else if (approvalProcess === ExternalApprovalProcess.CORRECTION) type = RequestType.CORRECTION;
 
         const leaveType = await queryRunner.manager.findOne(LeaveType, {
           where: { leaveTypeName: leaveTypeName, companyId: companyId },
         });
-        console.log('leaveType', leaveType)
+
         let request = await queryRunner.manager.findOne(AttendanceRequest, {
           where: { record_id: record_id },
         });
+
+        const oldStatus = request?.status?.toLowerCase();
 
         if (!request) {
           request = new AttendanceRequest();
           request.record_id = record_id;
         }
 
-        const startTime = new Date(fields['Thời gian bắt đầu']);
-        const endTime = new Date(fields['Thời gian kết thúc']);
+        const startTime = new Date(fields.start_time);
+        const endTime = new Date(fields.end_time);
 
-        request.request_id = fields['Mã đơn']?.[0]?.text;
+        const newStatus = fields.status;
+        const isApproved = newStatus?.toLowerCase() === 'approved';
+        const wasApproved = oldStatus === 'approved';
+        const isRejected = newStatus?.toLowerCase() === 'rejected';
+
+        request.request_id = fields.request_code?.[0]?.text || '';
         request.employee_id = employee.id;
         request.company_id = companyId;
-        request.status = fields['Trạng thái duyệt'];
-        request.note = leaveTypeName;
+        request.status = newStatus || '';
+        request.note = leaveTypeName || fields.note || '';
         request.type = type; // Fix: Gán đúng type đã phân loại
         request.applied_date = startTime;
-        request.total_hours = fields['Số giờ nghỉ'];
+        request.total_hours = fields.total_hours || 0;
         request.leave_type_id = leaveType?.id || null;
-        request.is_counted = true; // Gán cứng true để đảm bảo luôn được tính
+        request.is_counted = isApproved; // Chỉ tính công nếu Đã duyệt
         request.raw_data = item;
 
         const savedRequest = await queryRunner.manager.save(request);
@@ -97,7 +103,7 @@ export class ApprovalManagementService {
           detail.end_time = endTime;
           detail.hours = savedRequest.total_hours;
           detail.leave_type_id = savedRequest.leave_type_id;
-          detail.leave_type_details = leaveTypeName;
+          detail.leave_type_details = leaveTypeName || '';
           await queryRunner.manager.save(detail);
         }
         else if (type === RequestType.OVERTIME) {
@@ -108,7 +114,6 @@ export class ApprovalManagementService {
           otDetail.attendance_request_id = savedRequest.id;
           otDetail.start_time = startTime;
           otDetail.end_time = endTime;
-          otDetail.ot_rule_id = 1;
           otDetail.hours_ratio = savedRequest.total_hours;
           await queryRunner.manager.save(otDetail);
         }
@@ -123,21 +128,26 @@ export class ApprovalManagementService {
         }
 
         // Gom danh sách ngày cần tính toán lại (Xử lý cả nghỉ nhiều ngày)
-        const today = new Date();
-        today.setHours(23, 59, 59, 999);
+        // Chỉ tính lại nếu:
+        // 1. Đơn mới là Approved
+        // 2. Đơn cũ là Approved nhưng đơn mới là Rejected (để tính toán lại bỏ phép)
+        if (isApproved || (isRejected && wasApproved)) {
+          const today = new Date();
+          today.setHours(23, 59, 59, 999);
 
-        let tempDate = new Date(startTime);
-        // Chạy vòng lặp từ ngày bắt đầu đến ngày kết thúc
-        while (tempDate <= endTime) {
-          if (tempDate <= today) {
-            const dateStr = tempDate.toISOString().split('T')[0];
-            const key = `${employee.id}_${dateStr}`;
-            if (!taskMap.has(key)) {
-              taskMap.set(key, { employeeId: employee.id, date: new Date(tempDate) });
+          let tempDate = new Date(startTime);
+          // Chạy vòng lặp từ ngày bắt đầu đến ngày kết thúc
+          while (tempDate <= endTime) {
+            if (tempDate <= today) {
+              const dateStr = tempDate.toISOString().split('T')[0];
+              const key = `${employee.id}_${dateStr}`;
+              if (!taskMap.has(key)) {
+                taskMap.set(key, { employeeId: employee.id, date: new Date(tempDate) });
+              }
             }
+            // Tăng thêm 1 ngày
+            tempDate.setDate(tempDate.getDate() + 1);
           }
-          // Tăng thêm 1 ngày
-          tempDate.setDate(tempDate.getDate() + 1);
         }
       }
 
