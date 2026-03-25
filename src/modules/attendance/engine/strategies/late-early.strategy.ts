@@ -7,7 +7,7 @@ import { RuleFactoryService } from '../services/rule-factory.service';
 export class LateEarlyStrategy {
   private readonly logger = new Logger(LateEarlyStrategy.name);
 
-  constructor(private ruleFactory: RuleFactoryService) {}
+  constructor(private ruleFactory: RuleFactoryService) { }
 
   process(context: CalculationContext): void {
     this.logger.debug(
@@ -45,7 +45,6 @@ export class LateEarlyStrategy {
     for (const punch of context.punches) {
       this.logger.log('----- Processing Punch -----');
 
-      // SỬA 1: Khai báo ở đây để đoạn check bên dưới không bị báo lỗi "Cannot find name"
       let finalLate = 0;
       let finalEarly = 0;
       const effectiveAllowedLate =
@@ -113,9 +112,7 @@ export class LateEarlyStrategy {
         punch.miss_check_out = true;
       }
 
-      // ============================================================
-      // SỬA 2: ĐẶT FLAG ÉP 0 CÔNG NẾU VI PHẠM (1 PHÚT CŨNG CHÉM)
-      // ============================================================
+
       if (
         finalLate > 0 ||
         finalEarly > 0 ||
@@ -125,7 +122,6 @@ export class LateEarlyStrategy {
         this.logger.warn(
           `STRICT RULE: Violation detected. Force 0 work hours for this punch.`,
         );
-        // Đánh dấu vào object punch để WorkdayCalculationStrategy biết đường mà xử lý
         punch['is_invalid_workday'] = true;
       }
 
@@ -195,7 +191,7 @@ export class LateEarlyStrategy {
   }
 
   private getShiftTimeOnDate(targetDate: Date, shiftTime: Date): Date {
-    const result = new Date(targetDate); // Lấy ngày của punch (Ngày chấm công)
+    const result = new Date(targetDate);
     result.setHours(shiftTime.getHours());
     result.setMinutes(shiftTime.getMinutes());
     result.setSeconds(0);

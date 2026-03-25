@@ -14,7 +14,7 @@ export class RemoteWorkStrategy {
   constructor(
     @InjectRepository(AttendanceRequest)
     private requestRepo: Repository<AttendanceRequest>,
-  ) {}
+  ) { }
 
   async process(context: CalculationContext): Promise<void> {
     this.logger.debug(
@@ -25,7 +25,6 @@ export class RemoteWorkStrategy {
     );
     const { employee, date } = context;
 
-    // 1. Tìm đơn Remote của ngày hôm nay
     const remoteRequest = await this.requestRepo
       .createQueryBuilder('request')
       .innerJoin('request.leave_type', 'lt')
@@ -44,15 +43,13 @@ export class RemoteWorkStrategy {
       .getRawOne();
 
     if (remoteRequest) {
-      // 2. CHỈ GÁN VÀO onlineValue (Không cộng totalWorkedHours ở đây)
-      // remoteRequest.hours là kết quả từ câu select trên
       context.onlineValue = parseFloat(remoteRequest.hours) || 0;
 
       this.logger.debug(
         `Step Remote: Found ${context.onlineValue} hours for employee ${employee.id}`,
       );
     } else {
-      context.onlineValue = 0; // Đảm bảo không bị dữ liệu cũ
+      context.onlineValue = 0;
     }
   }
 }

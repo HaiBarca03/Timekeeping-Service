@@ -6,7 +6,6 @@ import { AttendanceDailyPunch } from '../entities/attendance-daily-punch.entity'
 import { AttendanceDailyTimesheet } from '../entities/attendance-daily-timesheet.entity';
 import { Employee } from 'src/modules/master-data/entities/employee.entity';
 import { PunchProcessingStrategy } from './strategies/punch-processing.strategy';
-// import { BreakTimeStrategy } from './strategies/break-time.strategy';
 import { LateEarlyStrategy } from './strategies/late-early.strategy';
 import { OvertimeStrategy } from './strategies/overtime.strategy';
 import { RemoteWorkStrategy } from './strategies/remote-work.strategy';
@@ -24,7 +23,6 @@ import { Holiday } from '../entities/holidays.entity';
 import { BreakTimeStrategy } from './strategies/break-time.strategy';
 import { LeavePolicyRule } from 'src/modules/master-data/entities/leave-policy-rule.entity';
 import { BackdateOverride } from '../entities/backdate_overrides.entity';
-// import { RedisModule } from 'src/redis/redis.module';
 import { SwapStrategy } from './strategies/swap.strategy';
 import { MaternityStrategy } from './strategies/maternity.strategy';
 import { CorrectionStrategy } from './strategies/correction.strategy';
@@ -43,7 +41,6 @@ import { CorrectionStrategy } from './strategies/correction.strategy';
       LeavePolicyRule,
       Shift,
     ]),
-    // RedisModule,
     forwardRef(() => ApprovalManagementModule),
   ],
   providers: [
@@ -65,4 +62,4 @@ import { CorrectionStrategy } from './strategies/correction.strategy';
   ],
   exports: [AttendanceEngine, AttendanceRecordService],
 })
-export class AttendanceEngineModule {}
+export class AttendanceEngineModule { }

@@ -14,7 +14,7 @@ export class OvertimeStrategy {
   constructor(
     @InjectRepository(AttendanceRequest)
     private requestRepo: Repository<AttendanceRequest>,
-  ) {}
+  ) { }
 
   async process(context: CalculationContext): Promise<void> {
     this.logger.debug(
@@ -25,7 +25,6 @@ export class OvertimeStrategy {
     );
     const { employee, date } = context;
 
-    // 1. KIỂM TRA ĐỐI TƯỢNG (Dựa trên JobLevel Code)
     // Quy tắc: Chỉ nhân viên mới tính OT, Quản lý (MGR, HEAD, DIR...) không tính.
     const jobLevelCode = employee.jobLevel?.code?.toUpperCase();
     const managementCodes = ['MGR', 'HEAD', 'DIR', 'CEO', 'MANAGER'];
@@ -37,7 +36,6 @@ export class OvertimeStrategy {
       return;
     }
 
-    // 2. QUERY ĐƠN OT ĐÃ PHÊ DUYỆT
     const otRequest = await this.requestRepo
       .createQueryBuilder('request')
       .innerJoin('request.leave_type', 'lt')
@@ -58,7 +56,7 @@ export class OvertimeStrategy {
 
     if (!otRequest) return;
 
-    // 3. KIỂM TRA ĐIỀU KIỆN TỐI THIỂU 1 TIẾNG (Theo yêu cầu HM)
+    // ĐIỀU KIỆN TỐI THIỂU 1 TIẾNG (Theo yêu cầu HM)
     const hours = parseFloat(otRequest.hoursRatio) || 0;
 
     if (hours < 1) {
@@ -66,15 +64,12 @@ export class OvertimeStrategy {
       return;
     }
 
-    // 4. CẬP NHẬT VÀO CONTEXT
     context.overtimeMinutes = hours * 60;
 
-    // Nếu là loại "Nghỉ bù", ta tách ra field riêng trong Context của bạn
     if (otRequest.convertType === 'Nghỉ bù') {
       context.overtimeCompensatoryMinutes = hours * 60;
     }
 
-    // Lưu thêm ratio vào context (dùng biến động) để phục vụ lưu Timesheet
     context['ot_ratio'] = parseFloat(otRequest.ratio) || 1.0;
 
     this.logger.debug(`OT Approved: ${hours}h, Ratio: ${otRequest.ratio}`);

@@ -18,7 +18,7 @@ export class LeaveStrategy {
     private requestRepo: Repository<AttendanceRequest>,
     @InjectRepository(LeavePolicyRule)
     private policyRuleRepo: Repository<LeavePolicyRule>,
-  ) {}
+  ) { }
 
   async process(context: CalculationContext): Promise<void> {
     this.logger.debug(
@@ -28,24 +28,23 @@ export class LeaveStrategy {
       `[DEBUG] AllowLate from Shift Rule: ${context.shiftContext?.rule?.allowLateMinutes}`,
     );
     const { employee, date, shiftContext } = context;
-    const currentDate = new Date(date.toISOString().split('T')[0]);
+    const dateStr = date.toISOString().split('T')[0];
 
-    // 1. KIỂM TRA ĐỐI TƯỢNG: Chỉ NV chính thức (Không bao gồm thử việc, TTS, CTV)
-    // Giả sử code 'OFFICIAL' là nhân viên chính thức
-    const isOfficial = employee.employeeStatus?.code === 'OFFICIAL';
+    const isOfficial = employee.employeeType?.code === 'OFFICIAL';
 
-    // 2. TRUY VẤN ĐƠN NGHỈ (Đã bao gồm điều kiện status='Approved')
+    this.logger.debug(`[LeaveStrategy] Checking for Emp ${employee.id} on ${dateStr}`);
+
     const leaveRequests = await this.requestRepo
       .createQueryBuilder('request')
       .innerJoinAndSelect('request.leave_type', 'lt')
       .innerJoinAndSelect('request.detail_time_off', 'detail')
       .where('request.employee_id = :employeeId', { employeeId: employee.id })
-      .andWhere('request.status = :status', { status: 'Approved' })
+      .andWhere('UPPER(request.status) = :status', { status: 'APPROVED' })
       .andWhere('request.is_counted = :isCounted', { isCounted: true })
       .andWhere(
-        ':date BETWEEN CAST(detail.start_time AS DATE) AND CAST(detail.end_time AS DATE)',
+        ':dateStr BETWEEN detail.start_time::date AND detail.end_time::date',
         {
-          date: currentDate,
+          dateStr,
         },
       )
       .getMany();
@@ -58,14 +57,14 @@ export class LeaveStrategy {
     for (const req of leaveRequests) {
       const lt = req.leave_type;
       const detail = req.detail_time_off;
+      const checkDate = new Date(dateStr);
       const startDate = new Date(
         new Date(detail.start_time).toISOString().split('T')[0],
       );
 
-      // Tính ngày thứ bao nhiêu của kỳ nghỉ
       const dayIndex =
         Math.floor(
-          (currentDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24),
+          (checkDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24),
         ) + 1;
 
       // --- RULE: ĐỐI TƯỢNG (SRS: Nhân viên chính thức của 4 công ty) ---
@@ -81,18 +80,17 @@ export class LeaveStrategy {
         const appliedDate = new Date(req.applied_date);
         const createdAt = new Date(req['createdAt']); // BaseEntity cần có createdAt
 
-        // Tính khoảng cách tháng (đơn giản hóa)
+        // Tính khoảng cách tháng 
         const diffDays =
           (appliedDate.getTime() - createdAt.getTime()) / (1000 * 3600 * 24);
         if (diffDays < 30) {
           this.logger.error(
             `Đơn thai sản ${req.id} vi phạm quy tắc nộp trước 1 tháng (Chỉ nộp trước ${Math.floor(diffDays)} ngày)`,
           );
-          // Note: Nghiệp vụ thường vẫn tính công nhưng sẽ bị HR gắn cờ vi phạm
         }
       }
 
-      // --- RULE: GIỚI HẠN NGÀY CHẾ ĐỘ (SRS 3.2.1) ---
+      // --- RULE: GIỚI HẠN NGÀY CHẾ ĐỘ ---
       let currentRequestHours = detail?.hours || 0;
 
       const policyLimits: Record<string, number> = {
@@ -157,7 +155,6 @@ export class LeaveStrategy {
         }
       }
 
-      // Metadata cho các strategy khác
       context['leaveTypeCode'] = mainLeaveType.code;
       context['isPaidLeave'] = mainLeaveType.isDeductLeave;
 

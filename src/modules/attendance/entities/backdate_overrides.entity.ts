@@ -21,7 +21,7 @@ export class BackdateOverride extends BaseEntity {
   entity_id: string; // ID của đối tượng tương ứng
 
   @Column({ type: 'jsonb' })
-  override_values: Record<string, any>; // Lưu { allowLateMinutes: 30, shiftHours: 7.5 }
+  override_values: Record<string, any>;
 
   @Column({ type: 'text', nullable: true })
   reason: string;

@@ -18,7 +18,7 @@ export class SwapStrategy {
     private requestRepo: Repository<AttendanceRequest>,
     @InjectRepository(ShiftAssignment)
     private assignmentRepo: Repository<ShiftAssignment>,
-  ) {}
+  ) { }
 
   async process(context: CalculationContext): Promise<void> {
     const { employee, date } = context;
@@ -54,7 +54,6 @@ export class SwapStrategy {
 
     const detail = swapRequest.detail_adjustment;
 
-    // Xác định ID của người "đối tác" trong đơn đổi ca
     const partnerId =
       swapRequest.employee_id === employee.id
         ? detail.employee_id_swap
@@ -64,10 +63,9 @@ export class SwapStrategy {
       `[SWAP-STORE] Swapping context: ${employee.id} <-> ${partnerId} on ${dateString}`,
     );
 
-    // 3. LẤY TOÀN BỘ ASSIGNMENTS CỦA NGƯỜI KIA
     const partnerAssignments = await this.assignmentRepo.find({
       where: {
-        employeeId: partnerId, // Lưu ý: Check lại tên field trong Entity của ông (employeeId hay employee_id)
+        employeeId: partnerId,
         date: dateString as any,
         isActive: true,
       },
@@ -75,7 +73,6 @@ export class SwapStrategy {
     });
 
     if (partnerAssignments.length > 0) {
-      // 4. HOÁN ĐỔI SHIFT CONTEXT
       // Tạo một ShiftContext mới dựa trên Assignments của Partner
       const partnerShift = partnerAssignments[0].shift;
       const newShiftContext = new ShiftContext(
@@ -94,7 +91,6 @@ export class SwapStrategy {
         `[SWAP-STORE] Applied partner's ${partnerAssignments.length} assignments to current employee.`,
       );
     } else {
-      // Nếu người kia không có ca, thì ngày này coi như không có ca để đổi
       this.logger.warn(
         `[SWAP-STORE] Partner ${partnerId} has no assignments to swap.`,
       );

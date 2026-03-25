@@ -16,7 +16,6 @@ export class BreakTimeStrategy {
 
     this.logger.log('========== START BreakTimeStrategy (Office) ==========');
 
-    // Lấy duy nhất 1 rule từ context (vì 1 shift giờ chỉ có 1 rest)
     const rule = context.shiftContext?.restRule;
 
     if (!rule || !rule.restBeginTime || !rule.restEndTime) {
@@ -32,11 +31,9 @@ export class BreakTimeStrategy {
 
       if (!punchIn || !punchOut) continue;
 
-      // Không cần loop qua 'restRules' nữa, xử lý trực tiếp 'rule'
       const restStart = this.parseTimeToDate(context.date, rule.restBeginTime);
       const restEnd = this.parseTimeToDate(context.date, rule.restEndTime);
 
-      // Tính toán sự giao thoa (Overlap)
       const overlapStart = max([punchIn, restStart]);
       const overlapEnd = min([punchOut, restEnd]);
 

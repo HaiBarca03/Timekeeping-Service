@@ -31,13 +31,13 @@ export class AttendanceRequest extends BaseEntity {
   status: string; // Approved, Pending, Rejected
 
   @Column({ type: 'date' })
-  applied_date: Date; // Ngày mà đơn này tác động vào
+  applied_date: Date;
 
   @Column({ type: 'boolean', default: true })
   is_counted: boolean; // 1: Tính công, 0: Quá hạn
 
   @Column({ type: 'float', nullable: true })
-  total_hours: number; // Tổng giờ quy đổi
+  total_hours: number;
 
   @Column({
     type: 'bigint',

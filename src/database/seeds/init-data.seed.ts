@@ -13,7 +13,7 @@ import { EmployeeType } from '../../modules/master-data/entities/employee-type.e
 import { EmployeeStatus } from '../../modules/master-data/entities/employee-status.entity';
 import { LeaveType } from '../../modules/master-data/entities/leave-type.entity';
 import { AttendanceMethod } from '../../modules/master-data/entities/attendance-method.entity';
-import { TimesheetAdjustmentType } from '../../modules/master-data/entities/timesheet-adjustment-type.entity';
+// import { TimesheetAdjustmentType } from '../../modules/master-data/entities/timesheet-adjustment-type.entity';
 import { WorkLocation } from '../../modules/master-data/entities/work-locations.entity';
 import { Department } from '../../modules/master-data/entities/department.entity';
 import { ShiftAssignment } from '../../modules/attendance/entities/shift-assignment.entity';
@@ -183,12 +183,13 @@ export const initDataSeed = async (dataSource: DataSource) => {
   ]);
   // TimesheetAdjustmentType – các loại điều chỉnh công
 
-  await dataSource.getRepository(TimesheetAdjustmentType).save([
-    { companyId, adjustmentTypeName: 'Quên chấm công / quẹt thẻ' },
-    { companyId, adjustmentTypeName: 'Lỗi thiết bị / hệ thống' },
-    { companyId, adjustmentTypeName: 'Làm thêm giờ được phê duyệt' },
-    { companyId, adjustmentTypeName: 'Đi muộn / về sớm có phép' },
-  ]); // ──────────────────────────────────────────────
+  // await dataSource.getRepository(TimesheetAdjustmentType).save([
+  //   { companyId, adjustmentTypeName: 'Quên chấm công / quẹt thẻ' },
+  //   { companyId, adjustmentTypeName: 'Lỗi thiết bị / hệ thống' },
+  //   { companyId, adjustmentTypeName: 'Làm thêm giờ được phê duyệt' },
+  //   { companyId, adjustmentTypeName: 'Đi muộn / về sớm có phép' },
+  // ]); 
+  // ──────────────────────────────────────────────
   // 3. LEAVE POLICY + RULE (đại diện mọi loại nghỉ)
   // ──────────────────────────────────────────────
 

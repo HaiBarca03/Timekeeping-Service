@@ -59,6 +59,27 @@ export class AttendancePunchRecord extends BaseEntity {
   @Column({ type: 'jsonb', nullable: true })
   raw_payload?: Record<string, any> | null;
 
+  @Index()
+  @Column({
+    type: 'varchar',
+    length: 20,
+    default: 'PENDING'
+  })
+  processing_status: 'PENDING' | 'PROCESSING' | 'PROCESSED' | 'FAILED';
+
+  @Column({ type: 'text', nullable: true })
+  last_error?: string | null;
+
+  @Column({ type: 'integer', default: 0 })
+  retry_count: number;
+
+  @Index()
+  @Column({ type: 'varchar', nullable: true })
+  job_id?: string | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  processed_at?: Date | null;
+
   @ManyToOne(() => Company, (company) => company.attendancePunchRecords)
   @JoinColumn({ name: 'company_id' })
   company: Company;
