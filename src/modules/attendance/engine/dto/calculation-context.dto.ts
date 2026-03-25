@@ -20,14 +20,15 @@ export class CalculationContext {
   isRedundant: number = 0; // 1: có công thừa, 0: không
   workHoursRedundant: number = 0; // Số giờ thừa
   isSaturdayOff: boolean = false;
-  isSaturdayCandidate: boolean = false; 
+  isSaturdayCandidate: boolean = false;
 
+  isMaternityShift: boolean = false;
   isConfiguredOffDay: boolean = false;
   isHoliday: boolean = false;
   totalWorkedHours: number = 0;
   totalLateMinutes: number = 0;
   totalEarlyMinutes: number = 0;
-  latePenalty: number = 0;          // số công bị trừ do trễ
+  latePenalty: number = 0; // số công bị trừ do trễ
   earlyPenalty: number = 0;
   missPenalty: number = 0;
   overtimeMinutes: number = 0;
@@ -37,7 +38,7 @@ export class CalculationContext {
   leaveHours: number = 0;
   leaveValue: number = 0;
   finalActualWorkday: number = 0;
-  finalTotalWorkday: number = 1;    // default 1 ngày
+  finalTotalWorkday: number = 1; // default 1 ngày
 
   dailyTimesheet?: AttendanceDailyTimesheet; // entity để save cuối cùng
 

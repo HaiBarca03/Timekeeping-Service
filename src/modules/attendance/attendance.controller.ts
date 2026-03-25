@@ -17,8 +17,7 @@ import {
 import { AttendanceService } from './attendance.service';
 import { AttendanceRecordService } from './engine/services/attendance-record.service';
 import { BatchPunchResultDto } from './dto/batch-punch-result.dto';
-import { GenerateMonthlyTimesheetDto } from './engine/dto/generate-monthly-timesheet.dto';
-import { parse } from 'date-fns';
+import { CreateOverrideDto } from './dto/backdate-req.dto';
 
 @ApiTags('attendance')
 @Controller('attendance')
@@ -26,7 +25,7 @@ export class AttendanceController {
   constructor(
     private readonly attendanceService: AttendanceService,
     private readonly recordService: AttendanceRecordService,
-  ) {}
+  ) { }
 
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
@@ -118,5 +117,19 @@ export class AttendanceController {
       Number(month),
       Number(year),
     );
+  }
+  @Post('backdate-override')
+  async createBackdate(@Body() dto: CreateOverrideDto) {
+    return await this.attendanceService.createBackdateOverride(dto);
+  }
+
+  @Post('calculate-daily-batch')
+  @ApiQuery({ name: 'companyId', required: true })
+  @ApiQuery({ name: 'date', required: false, description: 'yyyy-mm-dd (default: yesterday)' })
+  async calculateDailyBatch(
+    @Query('companyId') companyId: string,
+    @Query('date') date?: string,
+  ) {
+    return await this.attendanceService.calculateDailyBatch(companyId, date);
   }
 }

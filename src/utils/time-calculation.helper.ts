@@ -11,18 +11,15 @@ export class TimeHelper {
     return actualMinutes - targetMinutes;
   }
 
-  /**
-   * Tính số phút chồng lấn giữa (A -> B) và (C -> D)
-   */
   static calculateOverlapMinutes(
     actualStart: Date,
     actualEnd: Date,
     configStartTimeStr: string,
     configEndTimeStr: string,
   ): number {
-    if (!actualStart || !actualEnd || !configStartTimeStr || !configEndTimeStr) return 0;
+    if (!actualStart || !actualEnd || !configStartTimeStr || !configEndTimeStr)
+      return 0;
 
-    // Chuyển config time (string) thành Date cùng ngày với actualStart
     const configStart = new Date(actualStart);
     const [sH, sM] = configStartTimeStr.split(':').map(Number);
     configStart.setHours(sH, sM, 0, 0);
@@ -31,7 +28,6 @@ export class TimeHelper {
     const [eH, eM] = configEndTimeStr.split(':').map(Number);
     configEnd.setHours(eH, eM, 0, 0);
 
-    // Tính điểm bắt đầu muộn nhất và điểm kết thúc sớm nhất
     const overlapStart = actualStart > configStart ? actualStart : configStart;
     const overlapEnd = actualEnd < configEnd ? actualEnd : configEnd;
 

@@ -15,7 +15,7 @@ export class RequestDetailOvertime extends BaseEntity {
   end_time: Date;
 
   @Column({ nullable: true })
-  convert_type: string; // Lương tăng ca / Nghỉ bù
+  convert_type: string;
 
   @Column()
   ot_rule_id: number;
@@ -24,7 +24,7 @@ export class RequestDetailOvertime extends BaseEntity {
   ratio_convert: number; // Hệ số (1.5, 2.0...)
 
   @Column({ type: 'float' })
-  hours_ratio: number; // Giờ đã nhân hệ số
+  hours_ratio: number;
 
   @OneToOne(() => AttendanceRequest, (req) => req.detail_overtime)
   @JoinColumn({ name: 'attendance_request_id' })

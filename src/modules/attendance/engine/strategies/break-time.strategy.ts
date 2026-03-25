@@ -8,8 +8,7 @@ export class BreakTimeStrategy {
 
   process(context: CalculationContext): void {
     const groupCode = context.employee.attendanceGroup?.code;
-    
-    // Chỉ áp dụng cho khối Văn phòng (Hoặc các nhóm không phải STORE/FACTORY nếu bạn muốn)
+
     if (groupCode === 'STORE_GROUP' || groupCode === 'FACTORY_GROUP') {
       this.logger.debug(`Skip BreakTimeStrategy for group: ${groupCode}`);
       return;
@@ -17,9 +16,10 @@ export class BreakTimeStrategy {
 
     this.logger.log('========== START BreakTimeStrategy (Office) ==========');
 
-    const restRules = context.shiftContext?.restRules || [];
-    if (restRules.length === 0) {
-      this.logger.warn('No rest rules found for this shift.');
+    const rule = context.shiftContext?.restRule;
+
+    if (!rule || !rule.restBeginTime || !rule.restEndTime) {
+      this.logger.warn('No valid rest rule found for this shift.');
       return;
     }
 
@@ -31,31 +31,24 @@ export class BreakTimeStrategy {
 
       if (!punchIn || !punchOut) continue;
 
-      for (const rule of restRules) {
-        // Chuyển string "HH:mm" thành object Date của ngày đang tính toán
-        const restStart = this.parseTimeToDate(context.date, rule.restBeginTime);
-        const restEnd = this.parseTimeToDate(context.date, rule.restEndTime);
+      const restStart = this.parseTimeToDate(context.date, rule.restBeginTime);
+      const restEnd = this.parseTimeToDate(context.date, rule.restEndTime);
 
-        // Tính toán sự giao thoa giữa (punchIn -> punchOut) và (restStart -> restEnd)
-        // Công thức: Overlap = min(End1, End2) - max(Start1, Start2)
-        const overlapStart = max([punchIn, restStart]);
-        const overlapEnd = min([punchOut, restEnd]);
+      const overlapStart = max([punchIn, restStart]);
+      const overlapEnd = min([punchOut, restEnd]);
 
-        if (isBefore(overlapStart, overlapEnd)) {
-          const overlapMinutes = differenceInMinutes(overlapEnd, overlapStart);
-          totalRestMinutes += overlapMinutes;
-          
-          this.logger.debug(
-            `Detected overlap with rest rule [${rule.restBeginTime}-${rule.restEndTime}]: ${overlapMinutes} mins`
-          );
-        }
+      if (isBefore(overlapStart, overlapEnd)) {
+        const overlapMinutes = differenceInMinutes(overlapEnd, overlapStart);
+        totalRestMinutes += overlapMinutes;
+
+        this.logger.debug(
+          `Detected overlap with rest rule [${rule.restBeginTime}-${rule.restEndTime}]: ${overlapMinutes} mins`,
+        );
       }
     }
 
-    // Lưu kết quả vào context để WorkdayCalculationStrategy sử dụng
-    // Bạn có thể thêm property này vào CalculationContext DTO nếu chưa có
-    context['totalRestMinutesValue'] = totalRestMinutes; 
-    
+    context['totalRestMinutesValue'] = totalRestMinutes;
+
     this.logger.log(`Total Break Time deducted: ${totalRestMinutes} minutes`);
     this.logger.log('========== END BreakTimeStrategy ==========');
   }

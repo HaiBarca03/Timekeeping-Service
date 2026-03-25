@@ -1,41 +1,24 @@
-import { Field, ObjectType, Int, InterfaceType } from '@nestjs/graphql';
 import { Type } from '@nestjs/common';
 
-@ObjectType()
 export class PaginationInfo {
-  @Field(() => Int)
   totalItems: number;
-
-  @Field(() => Int)
   itemCount: number;
-
-  @Field(() => Int)
   itemsPerPage: number;
-
-  @Field(() => Int)
   totalPages: number;
-
-  @Field(() => Int)
   currentPage: number;
 }
 
+// Cấu trúc trả về cho kết quả phân trang
 export function Paginated<T>(classRef: Type<T>) {
-  @ObjectType({ isAbstract: true })
   abstract class PaginatedType {
-    @Field(() => [classRef], { nullable: 'itemsAndList' })
     items: T[];
-
-    @Field(() => PaginationInfo)
     meta: PaginationInfo;
   }
   return PaginatedType as any;
 }
 
-@ObjectType()
+// Cấu trúc cho Request Params (Query params)
 export class PaginationArgs {
-  @Field(() => Int, { defaultValue: 1 })
-  page: number;
-
-  @Field(() => Int, { defaultValue: 10 })
-  limit: number;
+  page: number = 1;
+  limit: number = 10;
 }

@@ -1,12 +1,11 @@
-import { BaseEntity } from "../../../database/entities/base.entity";
-import { Entity, Column, PrimaryGeneratedColumn, OneToOne, JoinColumn, ManyToOne } from 'typeorm';
-import { RequestDetailTimeOff } from "./request-detail-time-off.entity";
-import { RequestDetailOvertime } from "./request-detail-overtime.entity";
-import { RequestDetailAdjustment } from "./request-detail-adjustment.entity";
-import { Field, ID } from "@nestjs/graphql";
-import { AttendanceDailyTimesheet } from "../../attendance/entities/attendance-daily-timesheet.entity";
-import { LeaveType } from "../../master-data/entities/leave-type.entity";
-import { Company } from "../../master-data/entities/company.entity";
+import { BaseEntity } from '../../../database/entities/base.entity';
+import { Entity, Column, OneToOne, JoinColumn, ManyToOne } from 'typeorm';
+import { RequestDetailTimeOff } from './request-detail-time-off.entity';
+import { RequestDetailOvertime } from './request-detail-overtime.entity';
+import { RequestDetailAdjustment } from './request-detail-adjustment.entity';
+import { AttendanceDailyTimesheet } from '../../attendance/entities/attendance-daily-timesheet.entity';
+import { LeaveType } from '../../master-data/entities/leave-type.entity';
+import { Company } from '../../master-data/entities/company.entity';
 
 export enum RequestType {
   LEAVE = 'LEAVE',
@@ -14,19 +13,17 @@ export enum RequestType {
   OVERTIME = 'OVERTIME',
   CORRECTION = 'CORRECTION',
   MATERNITY = 'MATERNITY',
-  SWAP = 'SWAP'
+  SWAP = 'SWAP',
 }
 
 @Entity('attendance_requests')
-export class AttendanceRequest extends BaseEntity{
-
+export class AttendanceRequest extends BaseEntity {
   @Column()
-  request_id: string; 
+  request_id: string;
 
   @Column()
   employee_id: string;
 
-  @Field({ nullable: true })
   @Column({ nullable: true })
   note: string;
 
@@ -34,36 +31,37 @@ export class AttendanceRequest extends BaseEntity{
   status: string; // Approved, Pending, Rejected
 
   @Column({ type: 'date' })
-  applied_date: Date; // Ngày mà đơn này tác động vào
+  applied_date: Date;
 
   @Column({ type: 'boolean', default: true })
   is_counted: boolean; // 1: Tính công, 0: Quá hạn
 
   @Column({ type: 'float', nullable: true })
-  total_hours: number; // Tổng giờ quy đổi
+  total_hours: number;
 
-  @Column({ 
-    type: 'bigint', 
-    nullable: true, 
-    name: 'leave_type_id' 
+  @Column({
+    type: 'bigint',
+    nullable: true,
+    name: 'leave_type_id',
   })
   leave_type_id: string | null;
 
   @Column({
     type: 'enum',
-    enum: RequestType, 
+    enum: RequestType,
   })
   type: RequestType;
 
-  @Field(() => ID)
   @Column({ type: 'bigint' })
   company_id: string;
 
   @Column({ nullable: true, unique: true })
-  record_id: string; 
+  record_id: string;
 
   @Column({ type: 'jsonb', nullable: true })
   raw_data: any;
+
+  // --- Relationships ---
 
   @ManyToOne(() => LeaveType)
   @JoinColumn({ name: 'leave_type_id' })
@@ -85,8 +83,7 @@ export class AttendanceRequest extends BaseEntity{
   @OneToOne(() => RequestDetailAdjustment, (detail) => detail.request)
   detail_adjustment: RequestDetailAdjustment;
 
-  @Field(() => Company)
-  @ManyToOne(() => Company, company => company.attendanceTimesheets)
+  @ManyToOne(() => Company, (company) => company.attendanceTimesheets)
   @JoinColumn({ name: 'company_id' })
   company: Company;
 }

@@ -4,7 +4,7 @@ import { Repository, Between } from 'typeorm';
 import { AttendancePunchRecord } from '../../entities/attendance-punch-record.entity';
 import { AttendanceDailyPunch } from '../../entities/attendance-daily-punch.entity';
 import { CalculationContext } from '../dto/calculation-context.dto';
-import { WorkMethodCode } from 'src/constants/work-method.enum'; 
+import { WorkMethodCode } from 'src/constants/work-method.enum';
 
 @Injectable()
 export class PunchProcessingStrategy {
@@ -14,7 +14,7 @@ export class PunchProcessingStrategy {
   constructor(
     @InjectRepository(AttendancePunchRecord)
     private punchRecordRepo: Repository<AttendancePunchRecord>,
-  ) {}
+  ) { }
 
   async process(context: CalculationContext): Promise<void> {
 
@@ -46,7 +46,6 @@ export class PunchProcessingStrategy {
     });
 
     this.logger.debug(`RAW PUNCH COUNT: ${rawPunches.length}`);
-    // this.logger.debug(`RAW PUNCH DATA: ${JSON.stringify(rawPunches)}`);
 
     // ===== NO PUNCH REQUIRED =====
     if (
@@ -57,8 +56,6 @@ export class PunchProcessingStrategy {
       this.logger.debug(`Work method = NO_PUNCH_REQUIRED → create full day punch`);
 
       context.punches = [this.createFullDayPunch(context)];
-
-      // this.logger.debug(`Generated Punch: ${JSON.stringify(context.punches)}`);
 
       return;
     }
@@ -120,10 +117,6 @@ export class PunchProcessingStrategy {
     }
 
     context.punches = [dailyPunch];
-
-    // this.logger.debug(
-    //   `DAILY PUNCH RESULT: ${JSON.stringify(context.punches)}`,
-    // );
 
     this.logger.log('========== END PunchProcessingStrategy ==========');
   }
