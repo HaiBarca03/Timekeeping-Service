@@ -8,6 +8,10 @@ export class WorkLocation extends BaseEntity {
   @Column({ name: 'company_id', type: 'bigint' })
   companyId: string;
 
+  @Index({ unique: true })
+  @Column({ name: 'origin_id', type: 'varchar', unique: true, nullable: true })
+  originId: string;
+
   @Column({ name: 'location_name', type: 'varchar' })
   locationName: string;
 
