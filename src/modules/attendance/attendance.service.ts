@@ -438,24 +438,49 @@ export class AttendanceService {
     // ... (Phần thực thi query và map kết quả giữ nguyên) ...
   }
 
-  async createBackdateOverride(data: any) {
+  async createBackdateOverride(data: any): Promise<BackdateOverride> {
     try {
       console.log('Dữ liệu chuẩn bị save:', data);
-      const newOverride = this.overrideRepo.create({
-        entity_type: data.entityType,
-        entity_id: data.entityId,
-        company_id: data.companyId,
-        effective_from: new Date(data.effectiveFrom),
-        effective_to: data.effectiveTo ? new Date(data.effectiveTo) : null,
-        override_values: data.overrideValues,
-        reason: data.reason,
-        recalc_status: 'PROCESSING',
-      });
 
-      return await this.overrideRepo.save(newOverride);
+      let override: BackdateOverride | null = null;
+
+      // 1. Nếu có source_id, thử tìm bản ghi cũ để update
+      if (data.sourceId) {
+        override = await this.overrideRepo.findOneBy({
+          source_id: data.sourceId,
+          company_id: data.companyId,
+        });
+      }
+
+      if (override) {
+        console.log(`[Override] Updating existing override: ${override.id}`);
+        this.overrideRepo.merge(override, {
+          entity_type: data.entityType,
+          entity_id: data.entityId,
+          effective_from: new Date(data.effectiveFrom),
+          effective_to: data.effectiveTo ? new Date(data.effectiveTo) : null,
+          override_values: data.overrideValues,
+          reason: data.reason,
+          recalc_status: 'PROCESSING', // Trigger tính lại khi update
+        });
+      } else {
+        console.log(`[Override] Creating new override`);
+        override = this.overrideRepo.create({
+          entity_type: data.entityType,
+          entity_id: data.entityId,
+          source_id: data.sourceId,
+          company_id: data.companyId,
+          effective_from: new Date(data.effectiveFrom),
+          effective_to: data.effectiveTo ? new Date(data.effectiveTo) : null,
+          override_values: data.overrideValues,
+          reason: data.reason,
+          recalc_status: 'PROCESSING',
+        });
+      }
+
+      return await this.overrideRepo.save(override);
     } catch (error) {
       console.error('LỖI KHI SAVE OVERRIDE:', error.message);
-      console.error('DETAIL:', error.detail);
       throw error;
     }
   }
@@ -473,10 +498,6 @@ export class AttendanceService {
     this.logger.log(
       `[OVERRIDE] Đang xử lý ${affectedEmpIds.length} nhân viên bị ảnh hưởng...`,
     );
-    // Bỏ qua cache warming vì không còn Redis
-    // for (const empId of affectedEmpIds) {
-    //   await this.refreshEmployeeOverrideCache(empId, override.company_id);
-    // }
 
     const dates = this.getDatesBetween(
       new Date(override.effective_from),
@@ -604,12 +625,36 @@ export class AttendanceService {
         return result;
       }
 
+      case 'DEPARTMENT': {
+        console.log('[CASE] DEPARTMENT');
+        const departmentEmps = await this.employeeRepo.find({
+          where: { departments: { originId: id }, companyId: company_id },
+          select: ['id'],
+        });
+
+        console.log('[DEPARTMENT] employees:', departmentEmps);
+
+        const result = departmentEmps.map((e) => e.id);
+
+        console.log('[DEPARTMENT] employeeIds:', result);
+        console.log('[COUNT]:', result.length);
+
+        return result;
+      }
+
       case 'EMPLOYEE': {
         console.log('[CASE] EMPLOYEE');
+        const emp = await this.employeeRepo.findOne({
+          where: [
+            { id: id, companyId: company_id },
+            { originId: id, companyId: company_id }
+          ],
+          select: ['id']
+        });
 
-        console.log('[EMPLOYEE] return:', [id]);
+        console.log('[EMPLOYEE] return:', emp ? [emp.id] : []);
 
-        return [id];
+        return emp ? [emp.id] : [];
       }
 
       default: {
@@ -619,15 +664,6 @@ export class AttendanceService {
       }
     }
   }
-
-  /* 
-  private async refreshEmployeeOverrideCache(
-    employeeId: string,
-    companyId: string,
-  ) {
-    // ... removed Redis cache logic ...
-  }
-  */
 
   private formatDate(date: Date): string {
     const d = new Date(date);
