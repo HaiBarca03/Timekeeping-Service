@@ -70,8 +70,8 @@ export class ApprovalManagementService {
           request.record_id = record_id;
         }
 
-        const startTime = new Date(fields.start_time);
-        const endTime = new Date(fields.end_time);
+        const startTime = this.parseTimestamp(fields.start_time);
+        const endTime = this.parseTimestamp(fields.end_time);
 
         const newStatus = fields.status;
         const isApproved = newStatus?.toLowerCase() === 'approved';
@@ -178,4 +178,10 @@ export class ApprovalManagementService {
       await queryRunner.release();
     }
   }
+
+  private parseTimestamp = (time: any) => {
+    if (typeof time === 'string' && !isNaN(Number(time))) {
+      return new Date(Number(time) * 1000);
+    } return new Date(time);
+  };
 }

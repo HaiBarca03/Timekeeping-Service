@@ -12,6 +12,8 @@ import { AttendanceController } from './attendance.controller';
 import { ShiftAssignment } from './entities/shift-assignment.entity';
 import { BackdateOverride } from './entities/backdate_overrides.entity';
 import { AttendanceCronService } from './attendance.cron';
+import { Shift } from '../master-data/entities/shift.entity';
+import { AttendanceGroup } from '../master-data/entities/attendance-group.entity';
 
 @Module({
   imports: [
@@ -23,6 +25,8 @@ import { AttendanceCronService } from './attendance.cron';
       AttendanceMonthlyTimesheet,
       ShiftAssignment,
       BackdateOverride,
+      Shift,
+      AttendanceGroup,
       Employee,
     ]),
     forwardRef(() => AttendanceEngineModule),

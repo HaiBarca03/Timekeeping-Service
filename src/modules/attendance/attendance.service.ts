@@ -13,6 +13,8 @@ import { format } from 'date-fns';
 import { ShiftAssignment } from './entities/shift-assignment.entity';
 import { BackdateOverride } from './entities/backdate_overrides.entity';
 import { AttendanceJob } from './dto/attendance-job';
+import { Shift } from '../master-data/entities/shift.entity';
+import { AttendanceGroup } from '../master-data/entities/attendance-group.entity';
 
 @Injectable()
 export class AttendanceService {
@@ -34,6 +36,13 @@ export class AttendanceService {
 
     @InjectRepository(ShiftAssignment)
     private shiftAssignmentRepo: Repository<ShiftAssignment>,
+
+    @InjectRepository(Shift)
+    private shiftRepo: Repository<Shift>,
+
+    @InjectRepository(AttendanceGroup)
+    private attendanceGroupRepo: Repository<AttendanceGroup>,
+
 
     @InjectRepository(BackdateOverride)
     private overrideRepo: Repository<BackdateOverride>,
@@ -430,8 +439,9 @@ export class AttendanceService {
   }
 
   async createBackdateOverride(data: any) {
-    const override = await this.overrideRepo.save(
-      this.overrideRepo.create({
+    try {
+      console.log('Dữ liệu chuẩn bị save:', data);
+      const newOverride = this.overrideRepo.create({
         entity_type: data.entityType,
         entity_id: data.entityId,
         company_id: data.companyId,
@@ -440,11 +450,14 @@ export class AttendanceService {
         override_values: data.overrideValues,
         reason: data.reason,
         recalc_status: 'PROCESSING',
-      }),
-    );
+      });
 
-    // Xử lý quét và tính toán (Đã tách riêng theo yêu cầu)
-    return override;
+      return await this.overrideRepo.save(newOverride);
+    } catch (error) {
+      console.error('LỖI KHI SAVE OVERRIDE:', error.message);
+      console.error('DETAIL:', error.detail);
+      throw error;
+    }
   }
 
   async processScanAffectedEmployees(overrideId: string) {
@@ -537,7 +550,7 @@ export class AttendanceService {
         console.log('[CASE] SHIFT_ASSIGNMENT');
 
         const assignments = await this.shiftAssignmentRepo.find({
-          where: { shiftId: id, companyId: company_id, isActive: true },
+          where: { originId: id, companyId: company_id, isActive: true },
           select: ['employeeId'],
         });
 
@@ -553,10 +566,10 @@ export class AttendanceService {
 
       case 'SHIFT': {
         console.log('[CASE] SHIFT');
-
+        const shift = await this.shiftRepo.findOne({ where: { originId: id } });
         const empsWithDefaultShift = await this.employeeRepo.find({
           where: {
-            attendanceGroup: { defaultShiftId: id },
+            attendanceGroup: { defaultShiftId: shift?.id },
             companyId: company_id,
           },
           select: ['id'],
@@ -574,9 +587,9 @@ export class AttendanceService {
 
       case 'ATTENDANCE_GROUP': {
         console.log('[CASE] ATTENDANCE_GROUP');
-
+        const group = await this.attendanceGroupRepo.findOne({ where: { originId: id } });
         const groupEmps = await this.employeeRepo.find({
-          where: { attendanceGroup: { id }, companyId: company_id },
+          where: { attendanceGroup: { id: group?.id }, companyId: company_id },
           select: ['id'],
         });
 
