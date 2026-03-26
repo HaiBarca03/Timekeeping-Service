@@ -19,35 +19,35 @@ export class CreateOverrideDto {
   @ApiProperty({
     enum: OverrideEntityType,
     example: OverrideEntityType.ATTENDANCE_GROUP,
-    description: 'Loại entity bị override',
+    description: 'The type of entity being overridden (EMPLOYEE, ATTENDANCE_GROUP, SHIFT, etc.)',
   })
   @IsEnum(OverrideEntityType)
-  entityType: string;
+  entityType: OverrideEntityType;
 
   @ApiProperty({
-    example: '123456',
-    description: 'ID của entity',
+    example: 'origin_id_123',
+    description: 'The business identifier (originId) of the target entity',
   })
   @IsString()
   entityId: string;
 
   @ApiProperty({
     example: '2024-03-01',
-    description: 'Ngày bắt đầu áp dụng',
+    description: 'The start date of the override (Inclusive)',
   })
   @IsDateString()
   effectiveFrom: string;
 
   @ApiProperty({
-    example: '1',
-    description: 'ID công ty',
+    example: 'company_origin_id',
+    description: 'The business identifier of the company',
   })
   @IsString()
   companyId: string;
 
   @ApiPropertyOptional({
     example: '2024-03-05',
-    description: 'Ngày kết thúc (optional)',
+    description: 'The end date of the override (Inclusive). If null, applies forever from start date.',
   })
   @IsOptional()
   @IsDateString()
@@ -55,18 +55,19 @@ export class CreateOverrideDto {
 
   @ApiProperty({
     example: {
-      allowLateMinutes: 60,
+      defaultShiftOriginId: 'new_shift_origin_id',
+      startTime: '08:30',
+      endTime: '17:30',
       isAngel: true,
-      shiftContext: { startTime: '09:00' },
     },
-    description: 'Các giá trị override',
+    description: 'JSON object containing the override values. Can include shift changes or individual property changes.',
   })
   @IsObject()
-  overrideValues: any;
+  overrideValues: Record<string, any>;
 
   @ApiProperty({
-    example: 'Hỗ trợ đi muộn do mưa lớn',
-    description: 'Lý do override',
+    example: 'Seasonal shift schedule change for Office Group',
+    description: 'The reason for this override',
   })
   @IsString()
   reason: string;
