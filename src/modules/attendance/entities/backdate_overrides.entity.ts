@@ -20,6 +20,10 @@ export class BackdateOverride extends BaseEntity {
   @Column({ type: 'varchar', length: 100 })
   entity_id: string; // OriginID của đối tượng tương ứng
 
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  @Index()
+  source_id: string; // ID từ hệ thống nguồn để track và update
+
   @Column({ type: 'jsonb' })
   override_values: Record<string, any>;
 

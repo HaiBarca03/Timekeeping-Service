@@ -15,6 +15,7 @@ import { RuleFactoryService } from './services/rule-factory.service';
 import { Shift } from 'src/modules/master-data/entities/shift.entity';
 import { ApprovalManagementModule } from 'src/modules/approval-management/approval-management.module';
 import { AttendanceMethod } from 'src/modules/master-data/entities/attendance-method.entity';
+import { AttendanceGroup } from 'src/modules/master-data/entities/attendance-group.entity';
 import { AttendanceRecordService } from './services/attendance-record.service';
 import { LeaveStrategy } from './strategies/leave.strategy';
 import { ShiftAssignment } from '../entities/shift-assignment.entity';
@@ -37,10 +38,10 @@ import { CorrectionStrategy } from './strategies/correction.strategy';
       Employee,
       Holiday,
       Shift,
+      AttendanceGroup,
       ShiftAssignment,
       BackdateOverride,
       LeavePolicyRule,
-      Shift,
     ]),
     forwardRef(() => ApprovalManagementModule),
   ],

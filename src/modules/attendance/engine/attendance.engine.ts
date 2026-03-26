@@ -29,6 +29,8 @@ import { SwapStrategy } from './strategies/swap.strategy';
 import { MaternityStrategy } from './strategies/maternity.strategy';
 import { CorrectionStrategy } from './strategies/correction.strategy';
 import { Shift } from 'src/modules/master-data/entities/shift.entity';
+import { AttendanceGroup } from 'src/modules/master-data/entities/attendance-group.entity';
+import { AttendanceMethod } from 'src/modules/master-data/entities/attendance-method.entity';
 // import { BackdateOverride } from '../entities/backdate_overrides.entity';
 
 @Injectable()
@@ -52,6 +54,10 @@ export class AttendanceEngine {
 
     @InjectRepository(BackdateOverride)
     private overrideRepo: Repository<BackdateOverride>,
+    @InjectRepository(AttendanceGroup)
+    private attendanceGroupRepo: Repository<AttendanceGroup>,
+    @InjectRepository(AttendanceMethod)
+    private attendanceMethodRepo: Repository<AttendanceMethod>,
 
     // private readonly redis: RedisService,
 
@@ -436,9 +442,32 @@ export class AttendanceEngine {
         case 'ATTENDANCE_GROUP':
           if (context.employee?.attendanceGroup) {
             this.logger.debug(`[Override] Overwriting Group props: ${Object.keys(values).join(', ')}`);
+
+            // 1. Ghi đè Group (nếu truyền originId mới thì đổi group)
+            if (values.attendanceGroupOriginId) {
+              const newGroup = await this.attendanceGroupRepo.findOne({
+                where: { originId: values.attendanceGroupOriginId },
+                relations: ['defaultShift', 'defaultShift.restRule']
+              });
+              if (newGroup) {
+                context.employee.attendanceGroup = newGroup;
+                this.logger.debug(`[Override] Switched Group to: ${newGroup.groupName}`);
+              }
+            }
+
+            // Ghi đè các thuộc tính cụ thể của Group hiện tại (hoặc group mới vừa set)
             Object.assign(context.employee.attendanceGroup, values);
 
-            // Xử lý chuyển ca cho NHÓM
+            // 2. Ghi đè Attendance Method
+            if (values.attendanceMethodOriginId) {
+              const method = await this.attendanceMethodRepo.findOneBy({ code: values.attendanceMethodOriginId });
+              if (method) {
+                context.employee.attendanceMethod = method;
+                this.logger.debug(`[Override] Switched Attendance Method to: ${method.methodName}`);
+              }
+            }
+
+            // 3. Xử lý chuyển ca cho NHÓM
             const newShiftOriginId = values.defaultShiftOriginId || values.shiftOriginId;
             if (newShiftOriginId) {
               const newShiftContext = await this.shiftResolver.resolveShiftByOriginId(newShiftOriginId, context.date);
@@ -446,6 +475,11 @@ export class AttendanceEngine {
                 context.shiftContext = newShiftContext;
                 this.logger.debug(`[Override] Switched Group to new Shift: ${newShiftContext.shift?.code}`);
               }
+            } else if (values.attendanceGroupOriginId && context.employee.attendanceGroup?.defaultShiftId) {
+              // Nếu đổi group mà KHÔNG truyền shift mới, thì tự động lấy shift default của group mới
+              const groupShiftContext = await this.shiftResolver.resolveShift(context);
+              context.shiftContext = groupShiftContext;
+              this.logger.debug(`[Override] Auto-switched to new Group's default Shift: ${groupShiftContext.shift?.code}`);
             }
           }
           break;
@@ -453,7 +487,30 @@ export class AttendanceEngine {
         case 'EMPLOYEE':
           if (context.employee) {
             this.logger.debug(`[Override] Overwriting Employee props: ${Object.keys(values).join(', ')}`);
+
+            // Ghi đè các field trực tiếp của Employee
             Object.assign(context.employee, values);
+
+            // Ghi đè Attendance Method cho nhân viên
+            if (values.attendanceMethodOriginId) {
+              const empMethod = await this.attendanceMethodRepo.findOneBy({ code: values.attendanceMethodOriginId });
+              if (empMethod) {
+                context.employee.attendanceMethod = empMethod;
+                this.logger.debug(`[Override] Switched Employee Attendance Method to: ${empMethod.methodName}`);
+              }
+            }
+
+            // Ghi đè Group cho nhân viên
+            if (values.attendanceGroupOriginId) {
+              const empNewGroup = await this.attendanceGroupRepo.findOne({
+                where: { originId: values.attendanceGroupOriginId },
+                relations: ['defaultShift', 'defaultShift.restRule']
+              });
+              if (empNewGroup) {
+                context.employee.attendanceGroup = empNewGroup;
+                this.logger.debug(`[Override] Switched Employee Group to: ${empNewGroup.groupName}`);
+              }
+            }
 
             // Xử lý chuyển ca cho NHÂN VIÊN
             const empShiftOriginId = values.shiftOriginId || values.defaultShiftOriginId;
@@ -463,6 +520,11 @@ export class AttendanceEngine {
                 context.shiftContext = empNewShiftContext;
                 this.logger.debug(`[Override] Switched Employee to new Shift: ${empNewShiftContext.shift?.code}`);
               }
+            } else if (values.attendanceGroupOriginId && context.employee.attendanceGroup?.defaultShiftId) {
+              // Nếu đổi group mà ko truyền shift, lấy default shift của group mới
+              const empGroupShiftContext = await this.shiftResolver.resolveShift(context);
+              context.shiftContext = empGroupShiftContext;
+              this.logger.debug(`[Override] Employee auto-switched to new Group's default Shift: ${empGroupShiftContext.shift?.code}`);
             }
           }
           break;

@@ -31,6 +31,14 @@ export class CreateOverrideDto {
   @IsString()
   entityId: string;
 
+  @ApiPropertyOptional({
+    example: 'external_id_456',
+    description: 'A unique identifier from the source system to track/update this override',
+  })
+  @IsOptional()
+  @IsString()
+  sourceId?: string;
+
   @ApiProperty({
     example: '2024-03-01',
     description: 'The start date of the override (Inclusive)',
