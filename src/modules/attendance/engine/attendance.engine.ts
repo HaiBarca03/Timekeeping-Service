@@ -28,6 +28,7 @@ import { formatDate } from 'date-fns';
 import { SwapStrategy } from './strategies/swap.strategy';
 import { MaternityStrategy } from './strategies/maternity.strategy';
 import { CorrectionStrategy } from './strategies/correction.strategy';
+import { Shift } from 'src/modules/master-data/entities/shift.entity';
 // import { BackdateOverride } from '../entities/backdate_overrides.entity';
 
 @Injectable()
@@ -42,6 +43,9 @@ export class AttendanceEngine {
 
     @InjectRepository(AttendanceDailyPunch)
     private punchRepo: Repository<AttendanceDailyPunch>,
+
+    @InjectRepository(Shift)
+    private shiftRepo: Repository<Shift>,
 
     @InjectRepository(ShiftAssignment)
     private shiftAssignmentRepo: Repository<ShiftAssignment>,
@@ -82,7 +86,7 @@ export class AttendanceEngine {
     this.logger.debug(`STEP 0: SHIFT RESOLVE & SWAP STRATEGY START`);
     context.shiftContext = await this.shiftResolver.resolveShift(context);
     await this.swapStrategy.process(context);
-    this.logger.debug(`context`, context);
+    // this.logger.debug(`context`, context);
     this.logger.debug(
       `STEP 0 RESULT: Shift resolved ${context.shiftContext?.shift?.code || 'OFF'}`,
     );
@@ -331,9 +335,9 @@ export class AttendanceEngine {
 
     const assignments = await this.shiftAssignmentRepo.find({
       where: { employeeId, isActive: true },
-      select: ['shiftId'],
+      select: ['originId'],
     });
-    const shiftIds = [...new Set(assignments.map((a) => a.shiftId))];
+    const shiftOriginIds = [...new Set(assignments.map((a) => a.shiftId))];
 
     const whereConditions: any[] = [
       { entity_type: 'EMPLOYEE', entity_id: employeeId, is_active: true },
@@ -342,7 +346,7 @@ export class AttendanceEngine {
     if (employee.attendanceGroup?.id) {
       whereConditions.push({
         entity_type: 'ATTENDANCE_GROUP',
-        entity_id: employee.attendanceGroup.id,
+        entity_id: employee.attendanceGroup.originId,
         is_active: true,
       });
     }
@@ -355,20 +359,25 @@ export class AttendanceEngine {
       });
     }
 
-    if (shiftIds.length > 0) {
+    if (shiftOriginIds.length > 0) {
       whereConditions.push({
         entity_type: 'SHIFT',
-        entity_id: In(shiftIds),
+        entity_id: In(shiftOriginIds),
         is_active: true,
       });
     }
 
     if (employee.attendanceGroup?.defaultShiftId) {
-      whereConditions.push({
-        entity_type: 'SHIFT',
-        entity_id: employee.attendanceGroup.defaultShiftId,
-        is_active: true,
+      const defaultShift = await this.shiftRepo.findOne({
+        where: { id: employee.attendanceGroup.defaultShiftId }
       });
+      if (defaultShift?.originId) {
+        whereConditions.push({
+          entity_type: 'SHIFT',
+          entity_id: defaultShift.originId,
+          is_active: true,
+        });
+      }
     }
 
     const allActive = await this.overrideRepo.find({

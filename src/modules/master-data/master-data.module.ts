@@ -14,13 +14,14 @@ import { LeavePolicyRule } from './entities/leave-policy-rule.entity';
 import { JobLevel } from './entities/job-level.entity';
 import { WorkLocation } from './entities/work-locations.entity';
 import { Department } from './entities/department.entity';
+import { AttendanceMethod } from './entities/attendance-method.entity';
 import { MasterDataController } from './master-data.controller';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([
       AttendanceGroup,
-      AttendanceGroup,
+      AttendanceMethod,
       Company,
       EmployeeStatus,
       EmployeeType,

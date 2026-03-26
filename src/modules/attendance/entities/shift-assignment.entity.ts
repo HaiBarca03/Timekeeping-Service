@@ -16,6 +16,10 @@ export class ShiftAssignment extends BaseEntity {
   @Column({ name: 'store_id', type: 'bigint' })
   storeId: string;
 
+  @Index({ unique: true })
+  @Column({ name: 'origin_id', type: 'varchar', unique: true, nullable: true })
+  originId: string;
+
   @Column({ type: 'date' })
   date: Date;
 

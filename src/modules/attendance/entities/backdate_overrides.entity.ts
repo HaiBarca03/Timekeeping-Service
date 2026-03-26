@@ -17,8 +17,8 @@ export class BackdateOverride extends BaseEntity {
   @Column({ length: 50 })
   entity_type: string; // 'SHIFT', 'ATTENDANCE_GROUP', 'EMPLOYEE'
 
-  @Column({ type: 'bigint' })
-  entity_id: string; // ID của đối tượng tương ứng
+  @Column({ type: 'varchar', length: 100 })
+  entity_id: string; // OriginID của đối tượng tương ứng
 
   @Column({ type: 'jsonb' })
   override_values: Record<string, any>;

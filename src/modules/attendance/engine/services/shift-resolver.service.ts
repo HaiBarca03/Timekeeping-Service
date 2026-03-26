@@ -24,7 +24,7 @@ export class ShiftResolverService {
 
     @InjectRepository(Holiday)
     private holidayRepo: Repository<Holiday>,
-  ) {}
+  ) { }
 
   async resolveShift(context: CalculationContext): Promise<ShiftContext> {
     const { employee, date } = context;
