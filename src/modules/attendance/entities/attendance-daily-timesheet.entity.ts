@@ -13,13 +13,17 @@ import { Company } from '../../master-data/entities/company.entity';
 import { AttendanceRequest } from '../../approval-management/entities/attendance-request.entity';
 
 @Entity('attendance_daily_timesheets')
-@Index(['employee_id', 'attendance_date'], { unique: true })
+@Index(['employee_id', 'attendance_date', 'user_id'], { unique: true })
 export class AttendanceDailyTimesheet extends BaseEntity {
   @Column({ type: 'bigint' })
   company_id: string;
 
   @Column({ type: 'bigint' })
   employee_id: string;
+
+
+  @Column({ type: 'varchar' })
+  user_id: string;
 
   @Column({ type: 'date' })
   attendance_date: Date;
