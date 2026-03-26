@@ -194,6 +194,7 @@ export class AttendanceEngine {
 
     timesheet.company_id = context.companyId;
     timesheet.employee_id = context.employee.id;
+    timesheet.user_id = context.employee.userId;
     timesheet.attendance_date = context.date;
     timesheet.weekday = context.date.getDay();
     timesheet.month = context.date.getMonth() + 1;

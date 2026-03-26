@@ -826,7 +826,7 @@ export const initDataSeed = async (dataSource: DataSource) => {
   const employeeRepo = dataSource.getRepository(Employee);
 
   // Lấy các dữ liệu tham chiếu
-  const empGroup = savedGroups.find((g) => g.code === '7617676707973074458');
+  const empGroup = savedGroups.find((g) => g.code === 'GR_VAN_PHONG_1');
 
   // workLocations không có field isHeadOffice, ta tìm theo tên
   const workLocationOffice = savedLocations.find((l) => l.locationName && !l.locationName.includes('Cửa hàng')) || savedLocations[0];
@@ -841,7 +841,7 @@ export const initDataSeed = async (dataSource: DataSource) => {
       id: '1001',
       userName: 'vp_chuan',
       fullName: 'NV VP Đi Chuẩn',
-      groupCode: '7617676707973074458', // Ca VP 1
+      groupCode: 'GR_VAN_PHONG_1', // Ca VP 1
       isMaternity: false,
       isStore: false,
     },
@@ -849,7 +849,7 @@ export const initDataSeed = async (dataSource: DataSource) => {
       id: '1002',
       userName: 'vp_dimuon',
       fullName: 'NV VP Đi Muộn',
-      groupCode: '7617676707973074458',
+      groupCode: 'GR_VAN_PHONG_1',
       isMaternity: false,
       isStore: false,
     },
@@ -857,7 +857,7 @@ export const initDataSeed = async (dataSource: DataSource) => {
       id: '1003',
       userName: 'vp_vesom',
       fullName: 'NV VP Về Sớm',
-      groupCode: '7617676707973074458',
+      groupCode: 'GR_VAN_PHONG_1',
       isMaternity: false,
       isStore: false,
     },
@@ -865,7 +865,7 @@ export const initDataSeed = async (dataSource: DataSource) => {
       id: '1004',
       userName: 'vp_quen_cham',
       fullName: 'NV VP Quên Chấm Công',
-      groupCode: '7617676707973074458',
+      groupCode: 'GR_VAN_PHONG_1',
       isMaternity: false,
       isStore: false,
     },
@@ -873,7 +873,7 @@ export const initDataSeed = async (dataSource: DataSource) => {
       id: '1005',
       userName: 'ts_muon_1h',
       fullName: 'NV Thai Sản Đi Muộn 1h',
-      groupCode: '7617687309982371354', // Ca thai sản 1
+      groupCode: 'GR_THAI_SAN_1', // Ca thai sản 1
       isMaternity: true,
       isStore: false,
     },
@@ -881,7 +881,7 @@ export const initDataSeed = async (dataSource: DataSource) => {
       id: '1006',
       userName: 'ts_ve_som_1h',
       fullName: 'NV Thai Sản Về Sớm 1h',
-      groupCode: '7617689477007330840', // Ca thai sản 2
+      groupCode: 'GR_THAI_SAN_2', // Ca thai sản 2
       isMaternity: true,
       isStore: false,
     },
@@ -889,7 +889,7 @@ export const initDataSeed = async (dataSource: DataSource) => {
       id: '1007',
       userName: 'ch_ca_sang',
       fullName: 'NV Cửa Hàng Ca Sáng',
-      groupCode: '7617745162118123031', // Ca cửa hàng
+      groupCode: 'GR_CUA_HANG', // Ca cửa hàng
       isMaternity: false,
       isStore: true,
     },
@@ -897,7 +897,7 @@ export const initDataSeed = async (dataSource: DataSource) => {
       id: '1008',
       userName: 'ch_ca_chieu',
       fullName: 'NV Cửa Hàng Ca Chiều',
-      groupCode: '7617745162118123031', // Ca cửa hàng
+      groupCode: 'GR_CUA_HANG', // Ca cửa hàng
       isMaternity: false,
       isStore: true,
     },
@@ -905,7 +905,7 @@ export const initDataSeed = async (dataSource: DataSource) => {
       id: '1009',
       userName: 'ch_xoay_ca',
       fullName: 'NV Cửa Hàng Xoay Ca',
-      groupCode: '7617745162118123031', // Ca cửa hàng
+      groupCode: 'GR_CUA_HANG', // Ca cửa hàng
       isMaternity: false,
       isStore: true,
     },
@@ -913,7 +913,7 @@ export const initDataSeed = async (dataSource: DataSource) => {
       id: '1010',
       userName: 'vp_parttime',
       fullName: 'NV VP Part-time',
-      groupCode: '7617676707973074458', // Ca VP 1
+      groupCode: 'GR_VAN_PHONG_1', // Ca VP 1
       isPartTime: true,
       isMaternity: false,
       isStore: false,
@@ -922,7 +922,7 @@ export const initDataSeed = async (dataSource: DataSource) => {
       id: '1011',
       userName: 'vp_t7_off',
       fullName: 'NV VP Nghỉ Thứ 7',
-      groupCode: '7617676707973074458', // Ca VP 1
+      groupCode: 'GR_VAN_PHONG_1', // Ca VP 1
       isSaturdayOff: true,
       isMaternity: false,
       isStore: false,

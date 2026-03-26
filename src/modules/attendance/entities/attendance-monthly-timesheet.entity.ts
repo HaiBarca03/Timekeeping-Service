@@ -4,13 +4,16 @@ import { Employee } from '../../master-data/entities/employee.entity';
 import { Company } from '../../master-data/entities/company.entity';
 
 @Entity('attendance_monthly_timesheets')
-@Index(['employee_id', 'company_id', 'month', 'year'], { unique: true })
+@Index(['employee_id', 'company_id', 'month', 'year', 'user_id'], { unique: true })
 export class AttendanceMonthlyTimesheet extends BaseEntity {
   @Column({ type: 'bigint' })
   company_id: string;
 
   @Column({ type: 'bigint' })
   employee_id: string;
+
+  @Column({ type: 'varchar' })
+  user_id: string;
 
   @Column()
   month: number;
