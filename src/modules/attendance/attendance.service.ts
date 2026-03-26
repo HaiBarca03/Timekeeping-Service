@@ -588,6 +588,7 @@ export class AttendanceService {
       case 'ATTENDANCE_GROUP': {
         console.log('[CASE] ATTENDANCE_GROUP');
         const group = await this.attendanceGroupRepo.findOne({ where: { originId: id } });
+        console.log('[GROUP] group:', group);
         const groupEmps = await this.employeeRepo.find({
           where: { attendanceGroup: { id: group?.id }, companyId: company_id },
           select: ['id'],

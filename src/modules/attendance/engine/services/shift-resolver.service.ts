@@ -234,4 +234,21 @@ export class ShiftResolverService {
     // Trả về một ShiftContext mới dựa trên ca làm việc vừa tìm được
     return new ShiftContext(shift);
   }
+
+  async resolveShiftByOriginId(
+    originId: string,
+    date: Date,
+  ): Promise<ShiftContext | null> {
+    const shift = await this.shiftRepo.findOne({
+      where: { originId: originId },
+      relations: ['restRule'],
+    });
+
+    if (!shift) {
+      this.logger.error(`Override Shift OriginID ${originId} not found in Database`);
+      return null;
+    }
+
+    return new ShiftContext(shift);
+  }
 }

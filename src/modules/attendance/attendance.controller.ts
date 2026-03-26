@@ -119,8 +119,24 @@ export class AttendanceController {
     );
   }
   @Post('backdate-override')
+  @ApiOperation({
+    summary: 'Tạo bản ghi đè (Override) cho khoảng thời gian quá khứ',
+    description: 'Tạo một bản ghi đè cấu hình cho Nhóm, Nhân viên hoặc Ca làm việc. Sau khi tạo thành công, hệ thống sẽ tự động quét và tính lại công cho các nhân viên bị ảnh hưởng.',
+  })
+  @ApiBody({ type: CreateOverrideDto })
+  @ApiResponse({
+    status: 201,
+    description: 'Bản ghi đè đã được tạo và tiến trình tính lại đã được bắt đầu.',
+  })
   async createBackdate(@Body() dto: CreateOverrideDto) {
-    return await this.attendanceService.createBackdateOverride(dto);
+    const override = await this.attendanceService.createBackdateOverride(dto);
+
+    // Trigger quét và tính lại trong background
+    this.attendanceService.processScanAffectedEmployees(override.id).catch(err => {
+      console.error(`[Override] Background scan failed for ${override.id}:`, err);
+    });
+
+    return override;
   }
 
   @Post('calculate-daily-batch')

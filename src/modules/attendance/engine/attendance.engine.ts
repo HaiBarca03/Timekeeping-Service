@@ -92,7 +92,7 @@ export class AttendanceEngine {
     );
 
     const overrides = await this.getApplicableOverrides(employeeId, date, overrideId);
-    this.applyOverridesToContext(context, overrides);
+    await this.applyOverridesToContext(context, overrides);
     if (overrides.length > 0) {
       this.logger.debug(`APPLIED ${overrides.length} BACKDATE OVERRIDES`);
     }
@@ -401,7 +401,7 @@ export class AttendanceEngine {
     return filtered;
   }
 
-  private applyOverridesToContext(
+  private async applyOverridesToContext(
     context: CalculationContext,
     overrides: BackdateOverride[],
   ) {
@@ -429,21 +429,44 @@ export class AttendanceEngine {
             if (shiftData.endTime) {
               context.shiftContext.shift.endTime = this.combineDateAndTime(context.date, shiftData.endTime);
             }
-            this.logger.debug(`[Override] Updated Shift: ${context.shiftContext.shift.startTime.toISOString()} to ${context.shiftContext.shift.endTime.toISOString()}`);
+            this.logger.debug(`[Override] Updated Shift properties: ${context.shiftContext.shift.startTime.toISOString()} to ${context.shiftContext.shift.endTime.toISOString()}`);
           }
           break;
+
         case 'ATTENDANCE_GROUP':
           if (context.employee?.attendanceGroup) {
             this.logger.debug(`[Override] Overwriting Group props: ${Object.keys(values).join(', ')}`);
             Object.assign(context.employee.attendanceGroup, values);
+
+            // Xử lý chuyển ca cho NHÓM
+            const newShiftOriginId = values.defaultShiftOriginId || values.shiftOriginId;
+            if (newShiftOriginId) {
+              const newShiftContext = await this.shiftResolver.resolveShiftByOriginId(newShiftOriginId, context.date);
+              if (newShiftContext) {
+                context.shiftContext = newShiftContext;
+                this.logger.debug(`[Override] Switched Group to new Shift: ${newShiftContext.shift?.code}`);
+              }
+            }
           }
           break;
+
         case 'EMPLOYEE':
           if (context.employee) {
             this.logger.debug(`[Override] Overwriting Employee props: ${Object.keys(values).join(', ')}`);
             Object.assign(context.employee, values);
+
+            // Xử lý chuyển ca cho NHÂN VIÊN
+            const empShiftOriginId = values.shiftOriginId || values.defaultShiftOriginId;
+            if (empShiftOriginId) {
+              const empNewShiftContext = await this.shiftResolver.resolveShiftByOriginId(empShiftOriginId, context.date);
+              if (empNewShiftContext) {
+                context.shiftContext = empNewShiftContext;
+                this.logger.debug(`[Override] Switched Employee to new Shift: ${empNewShiftContext.shift?.code}`);
+              }
+            }
           }
           break;
+
         default:
           this.logger.debug(`[Override] Unknown entity_type: ${override.entity_type}`);
       }
