@@ -303,6 +303,8 @@ export class AttendanceEngine {
           late: context.totalLateMinutes,
           early: context.totalEarlyMinutes,
           workHours: context.totalWorkedHours,
+          inOutWorkHours: context.inOutWorkHours,
+          inOutWorkdayCount: timesheet.in_out_workday_count,
         },
         null,
         2,

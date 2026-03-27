@@ -24,7 +24,7 @@ export class CorrectionStrategy {
       where: {
         employee_id: employee.id,
         applied_date: dateString as any,
-        status: 'Approved',
+        status: 'APPROVED',
         type: RequestType.CORRECTION,
         is_counted: true,
       },

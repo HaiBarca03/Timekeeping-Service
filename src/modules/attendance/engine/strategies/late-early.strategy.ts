@@ -113,35 +113,8 @@ export class LateEarlyStrategy {
       }
 
 
-      if (
-        finalLate > 0 ||
-        finalEarly > 0 ||
-        punch.miss_check_in ||
-        punch.miss_check_out
-      ) {
-        this.logger.warn(
-          `STRICT RULE: Violation detected. Force 0 work hours for this punch.`,
-        );
-        punch['is_invalid_workday'] = true;
-      }
-
-      const isFactoryGroup = context.attendanceGroupCode === 'FACTORY_GROUP';
-
-      if (!isFactoryGroup) {
-        if (
-          finalLate > 0 ||
-          finalEarly > 0 ||
-          punch.miss_check_in ||
-          punch.miss_check_out
-        ) {
-          this.logger.warn(
-            `STRICT RULE: Violation detected. Force 0 work hours.`,
-          );
-          punch['is_invalid_workday'] = true;
-        }
-      } else {
-        this.logger.debug(`FACTORY GROUP: Skip strict late/early rule.`);
-      }
+      // Bỏ block STRICT RULE sai lệch khiến công = 0 khi đi muộn / về sớm.
+      // workday-calculation.strategy.ts đã tự bỏ qua ca nếu punch.miss_check_in hoặc punch.miss_check_out = true.
 
       const isSaturday = context.date.getDay() === 6;
       if (isSaturday && !context.isConfiguredOffDay) {
