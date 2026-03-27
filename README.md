@@ -3,177 +3,81 @@
 </p>
 
 <p align="center">
-  ⏱️ <b>Timekeeping System</b> – Backend service built with <a href="https://nestjs.com">NestJS</a>
+  ⏱️ <b>Timekeeping System</b> – Backend service built with <a href="https://nestjs.com">NestJS 11</a>
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/NestJS-10-red" />
-  <img src="https://img.shields.io/badge/GraphQL-Apollo-blue" />
+  <img src="https://img.shields.io/badge/NestJS-11-red" />
+  <img src="https://img.shields.io/badge/REST-Swagger-blue" />
   <img src="https://img.shields.io/badge/TypeORM-PostgreSQL-green" />
-  <img src="https://img.shields.io/badge/Redis-BullMQ-orange" />
 </p>
 
 ---
 
 ## Description
 
-Backend service cho hệ thống **chấm công & quản lý phép**
+Backend service cho hệ thống **chấm công & quản lý nhân sự** (Timekeeping & HR Management).
+Hệ thống được thiết kế dưới dạng monolithic architecture, sử dụng REST API để giao tiếp và Swagger để tài liệu hóa.
 
-Hệ thống bao gồm:
-- **API Server** (GraphQL)
-- **Worker Process** (xử lý tính công, tính phép)
-- **Redis** (đóng vai trò trigger & deduplicate task)
-
----
-
-## Development
-
-- **`yarn start:app:dev`**  
-  Chạy API server ở chế độ development (watch mode).
-
-- **`yarn start:worker:dev`**  
-  Chạy worker riêng biệt ở chế độ development.
-
-- **`yarn start:dev`**  
-  Chạy cả API server và worker song song trong môi trường development.
-
-- **`yarn start:debug`**  
-  Chạy API server ở chế độ debug.
+Các tính năng chính:
+- Quản lý nhân viên (Master Data).
+- Tiếp nhận và xử lý dữ liệu chấm công thô (Attendance Raw).
+- Đồng bộ dữ liệu phê duyệt từ hệ thống ngoài (Approval Management).
+- Engine tính toán bảng công tự động.
 
 ---
 
-## Production
+## API Endpoints & Features
 
-- **`yarn build`**  
-  Build source TypeScript sang JavaScript (`dist/`).
+### 1. Master Data (Employee Management)
+- **`GET /master-data/employees`**: Lấy danh sách nhân viên (phân trang, lọc theo `companyId`).
+- **`POST /master-data/employees`**: Tạo mới một nhân viên.
+- **`PATCH /master-data/employees/:id`**: Cập nhật thông tin nhân viên theo ID nội bộ.
+- **`POST /master-data/employees/bulk`**: Import hàng loạt nhân viên mới.
+- **`POST /master-data/employees/bulk-update`**: Cập nhật hàng loạt nhân viên theo `originId` hoặc `userId`.
 
-- **`yarn start:prod`**  
-  Chạy API server từ thư mục `dist`.
-
-- **`yarn start:worker:prod`**  
-  Chạy worker từ thư mục `dist`.
-
-- **`yarn start:prod:all`**  
-  Chạy cả API server và worker song song trong môi trường production.
-
----
-
-## Database Migration (TypeORM)
-
-- **`yarn migration:create`**  
-  Tạo file migration mới.
-
-- **`yarn migration:generate`**  
-  Tự động generate migration từ entity hiện tại.
-
-- **`yarn migration:run`**  
-  Chạy các migration chưa được apply vào database.
-
-- **`yarn migration:revert`**  
-  Rollback migration gần nhất.
+### 2. Approval Management (Import Dữ liệu Phê duyệt)
+- **`POST /approval-management`**: Tiếp nhận dữ liệu phê duyệt (đơn từ Base, Lark, v.v.).
+- **Hỗ trợ các loại đơn**: `LEAVE`, `REMOTE`, `OVERTIME`, `CORRECTION`, `MATERNITY`, `SWAP`.
+- **Đặc điểm**: Tự động phân loại, lưu lịch sử và kích hoạt tính toán lại bảng công cho các ngày liên quan.
 
 ---
 
-## Attendance Processing Flow
+## Architecture & Data Flow
 
-Luồng xử lý dữ liệu chấm công (attendance raw) được thiết kế theo hướng **eventual consistency** và **batch processing**.
+Hệ thống hoạt động theo mô hình xử lý trực tiếp (In-process processing) để đảm bảo tính đơn giản và dễ bảo trì.
 
-### Flow tổng quát
+### 1. Attendance Processing Flow
+Dữ liệu chấm công thô được đẩy vào và xử lý như sau:
+1. **API Ingest**: Nhận dữ liệu chấm công từ thiết bị hoặc hệ thống bên ngoài.
+2. **Database Persistence**: Lưu vào bảng `attendance_raw`.
+3. **In-process Calculation**: Gọi trực tiếp `AttendanceEngine` để tính toán công cho nhân viên trong ngày đó.
+4. **Result Storage**: Lưu kết quả cuối cùng vào bảng `attendance_daily`.
 
-[External]
-   ↓
-[Attendance API]
-   ↓
-[attendance_raw DB] ←──┐
-   ↓                   │
-[Redis pending keys]   │
-   ↓                   │
-[Worker Process] ──────┘
-   ↓
-[attendance_daily DB]
-
-
-### Chi tiết
-
-1. External system gửi dữ liệu chấm công (raw).
-2. API:
-   - Validate dữ liệu cơ bản
-   - Lưu raw record vào `attendance_raw`
-   - Push Redis key theo `(employeeId + date)`
-3. Worker:
-   - Scan Redis keys
-   - Load dữ liệu liên quan từ DB
-   - Tính công theo rule
-   - Upsert vào `attendance_daily`
-   - Xóa Redis key sau khi xử lý thành công
+### 2. Leave / Approval Flow
+1. **API Ingest**: Tiếp nhận đơn phê duyệt.
+2. **Persistence**: Lưu thông tin đơn và các bảng chi tiết (`RequestDetailTimeOff`, etc.).
+3. **Trigger Recalculation**: Hệ thống xác định các ngày bị ảnh hưởng và gọi `AttendanceEngine` để cập nhật bảng công (`attendance_daily`). 
+   - *Lưu ý:* Việc tính toán được thực hiện dưới dạng asynchronous in-process (không đợi kết quả trả về API) để tối ưu thời gian phản hồi.
 
 ---
 
-## Leave / Ticket Processing Flow
+## Development & Production
 
-Áp dụng cho các loại phiếu:
-- Nghỉ phép
-- Remote
-- OT
-- Các loại điều chỉnh công khác
+### Scripts
+- **`yarn start:dev`**: Chạy ứng dụng ở chế độ watch mode cho môi trường development.
+- **`yarn build`**: Biên dịch mã nguồn TypeScript sang JavaScript.
+- **`yarn start:prod`**: Chạy ứng dụng từ thư mục `dist`.
 
-### Flow tổng quát
-
-[Create / Update Leave]
-        ↓
-     [DB]
-        ↓
-     [Redis trigger]
-        ↓
-     [Worker]
-        ↓
-[attendance_daily + leave_balance]
-
-### Chi tiết
-
-1. Tạo / duyệt / cập nhật phiếu.
-2. API:
-   - Lưu phiếu vào DB
-   - Xác định các ngày bị ảnh hưởng
-   - Push Redis trigger theo:
-     - `(employeeId + date)` → tính lại công
-     - `(employeeId + year)` → tính lại phép
-3. Worker:
-   - Re-calc attendance theo ngày
-   - Re-calc leave balance theo kỳ
-   - Update `attendance_daily` & `leave_balance`
-
----
-
-## Redis Usage Strategy
-
-Redis được sử dụng như một **lightweight task trigger**, không phải nơi lưu state nghiệp vụ.
-
-### Nguyên tắc
-- Chỉ lưu **ID / DATE**
-- Không cache payload lớn
-- TTL ngắn (1–7 ngày)
-- Idempotent processing
-
-### Ví dụ key
-attendance:pending:{employeeId}:{date}
-attendance:recalc:{employeeId}:{date}
-leave:recalc:{employeeId}:{year}
-
----
-
-## Worker Design Principles
-
-- Chạy độc lập với API server
-- Xử lý theo batch (100–200 tasks/lần)
-- Mỗi task độc lập, không crash toàn batch
-- Retry bằng cách giữ Redis key khi lỗi
-- Có thể scale nhiều worker song song
+### Database Migration
+- **`yarn migration:generate`**: Tạo migration mới từ thay đổi Entity.
+- **`yarn migration:run`**: Thực thi các migration chưa chạy.
+- **`yarn migration:revert`**: Hoàn tác migration gần nhất.
 
 ---
 
 ## Summary
-- API server: ingest & trigger
-- Redis: task marker & deduplication
-- Worker: xử lý nghiệp vụ nặng
-- Database: source of truth
+- **API Server**: Express backend dựa trên NestJS.
+- **ORM**: TypeORM kết nối PostgreSQL.
+- **Documentation**: Swagger UI truy cập tại `/apis/docs`.
+- **Background Tasks**: Các tác vụ nặng (tính công) được xử lý bất đồng bộ trong cùng tiến trình (In-process Async).
