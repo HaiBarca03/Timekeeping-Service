@@ -12,11 +12,11 @@ import { ExternalApprovalPayloadDto } from './dto/external-approval.dto';
 
 @Controller('approval-management')
 export class ApprovalManagementController {
-  constructor(private readonly leaveService: ApprovalManagementService) {}
+  constructor(private readonly leaveService: ApprovalManagementService) { }
 
-  @Post('import-external-data')
+  @Post('')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Import JSON thô từ Base' })
+  @ApiOperation({ summary: 'Import JSON thô các phiếu từ Base' })
   async importData(
     @Query('companyId') companyId: string,
     @Body() body: ExternalApprovalPayloadDto,

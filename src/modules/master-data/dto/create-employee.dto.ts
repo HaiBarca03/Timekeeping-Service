@@ -1,54 +1,89 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsOptional, IsEmail, IsEnum, IsDateString, IsBoolean, IsArray, IsUUID } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsEmail,
+  IsDateString,
+  IsBoolean,
+  IsArray,
+  ValidateIf,
+} from 'class-validator';
+import { Transform } from 'class-transformer';
 
 export class CreateEmployeeDto {
-  @ApiProperty({ description: 'The original ID of the employee from the external system', example: 'EMP001' })
+  @ApiProperty({
+    description: 'The original ID of the employee',
+    example: 'HHM016022',
+  })
+  @IsOptional()
   @IsString()
   originId: string;
 
-  @ApiProperty({ description: 'Username for the employee system', example: 'john_doe' })
+  @ApiProperty({ description: 'Username', example: 'nhumtq' })
+  @IsOptional()
   @IsString()
   userName: string;
 
-  @ApiProperty({ description: 'Full name of the employee', example: 'John Doe' })
+  @ApiProperty({ description: 'Full name', example: 'Mạch Thị Quỳnh Như' })
+  @IsOptional()
   @IsString()
   fullName: string;
 
-  @ApiProperty({ description: 'Employee code (User ID)', example: 'HHM001' })
+  @ApiProperty({ description: 'Employee code (User ID)', example: 'HHM016022' })
+  @IsOptional()
   @IsString()
   userId: string;
 
-  @ApiProperty({ required: false, example: 'john.doe@example.com' })
+  @ApiProperty({ required: false, example: 'nhumtq@hoanghamobile.com' })
   @IsOptional()
-  @IsEmail()
+  @IsString()
   email?: string;
 
-  @ApiProperty({ required: false, example: '0987654321' })
+  @ApiProperty({ required: false, example: '84396902770' })
   @IsOptional()
   @IsString()
   phoneNumber?: string;
 
-  @ApiProperty({ required: false, enum: ['MALE', 'FEMALE', 'OTHER'], example: 'MALE' })
+  @ApiProperty({
+    required: false,
+    enum: ['MALE', 'FEMALE', 'OTHER'],
+    example: 'FEMALE',
+  })
   @IsOptional()
   @IsString()
   gender?: string;
 
-  @ApiProperty({ required: false, type: 'string', format: 'date', example: '1990-01-01' })
+  @ApiProperty({
+    required: false,
+    type: 'string',
+    format: 'date',
+    example: '1990-01-01',
+  })
   @IsOptional()
-  @IsDateString()
-  birthday?: Date;
+  @IsString()
+  birthday?: Date | string | null;
 
-  @ApiProperty({ required: false, type: 'string', format: 'date', example: '2023-01-01' })
+  @ApiProperty({
+    required: false,
+    type: 'string',
+    format: 'date',
+    example: '2026-03-25',
+  })
   @IsOptional()
-  @IsDateString()
-  joinedAt?: Date;
+  @IsString()
+  joinedAt?: Date | string | null;
 
-  @ApiProperty({ required: false, nullable: true, type: 'string', format: 'date', example: null })
+  @ApiProperty({
+    required: false,
+    nullable: true,
+    type: 'string',
+    format: 'date',
+  })
   @IsOptional()
-  @IsDateString()
-  resignedAt?: Date | null;
+  @IsString()
+  resignedAt?: Date | string | null;
 
-  @ApiProperty({ required: false, description: 'Lark ID if integrated', example: 'lark_123' })
+  @ApiProperty({ required: false, description: 'Lark ID if integrated' })
   @IsOptional()
   @IsString()
   larkId?: string;
@@ -69,50 +104,74 @@ export class CreateEmployeeDto {
   is_maternity_shift?: boolean;
 
   @ApiProperty({ description: 'Origin ID of the Company' })
+  @IsOptional()
   @IsString()
+  // Nếu dữ liệu đôi khi gửi "" cho công ty, hãy cân nhắc thêm @IsOptional()
   companyOriginId: string;
 
-  @ApiProperty({ required: false, description: 'Origin ID of the Work Location' })
+  @ApiProperty({ required: false })
   @IsOptional()
   @IsString()
   workLocationOriginId?: string;
 
-  @ApiProperty({ required: false, description: 'Origin ID of the Attendance Group' })
+  @ApiProperty({ required: false })
   @IsOptional()
   @IsString()
   attendanceGroupOriginId?: string;
 
-  @ApiProperty({ required: false, description: 'Origin ID / Code of the Job Level' })
+  // --- CẬP NHẬT TÊN FIELD CHO KHỚP VỚI JSON CỦA BẠN ---
+
+  @ApiProperty({
+    required: false,
+    description: 'Job Level Code',
+    example: 'STAFF',
+  })
   @IsOptional()
   @IsString()
-  jobLevelOriginId?: string;
+  jobLevel?: string;
 
-  @ApiProperty({ required: false, description: 'Origin ID / Code of the Employee Type' })
+  @ApiProperty({
+    required: false,
+    description: 'Employee Type Code',
+    example: 'OFFICIAL',
+  })
   @IsOptional()
   @IsString()
-  employeeTypeOriginId?: string;
+  employeeType?: string;
 
-  @ApiProperty({ required: false, description: 'Origin ID / Code of the Employee Status' })
+  @ApiProperty({
+    required: false,
+    description: 'Employee Status Code',
+    example: 'WORKING',
+  })
   @IsOptional()
   @IsString()
-  employeeStatusOriginId?: string;
+  employeeStatus?: string;
 
-  @ApiProperty({ required: false, description: 'Origin ID / Code of the Attendance Method' })
+  @ApiProperty({
+    required: false,
+    description: 'Attendance Method Code',
+    example: 'LARK_APP',
+  })
   @IsOptional()
   @IsString()
-  attendanceMethodOriginId?: string;
+  attendanceMethod?: string;
 
-  @ApiProperty({ required: false, description: 'Policy Name / Origin ID of the Leave Policy' })
+  @ApiProperty({ required: false })
   @IsOptional()
   @IsString()
   leavePolicyOriginId?: string;
 
-  @ApiProperty({ required: false, description: 'Origin ID of the Manager (Employee)' })
+  @ApiProperty({ required: false })
   @IsOptional()
   @IsString()
   managerOriginId?: string;
 
-  @ApiProperty({ type: [String], required: false, description: 'Array of Department Origin IDs' })
+  @ApiProperty({
+    type: [String],
+    required: false,
+    description: 'Array of Department Origin IDs',
+  })
   @IsOptional()
   @IsArray()
   @IsString({ each: true })

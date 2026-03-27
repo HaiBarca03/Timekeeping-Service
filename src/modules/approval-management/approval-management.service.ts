@@ -30,6 +30,11 @@ export class ApprovalManagementService {
 
     // Dùng Map để tránh trùng lặp task (Key: employeeId_YYYY-MM-DD)
     const taskMap = new Map<string, { employeeId: string; date: Date }>();
+    const results = {
+      successCount: 0,
+      failureCount: 0,
+      errors: [] as { record_id: string; message: string }[]
+    };
 
     try {
       for (const item of items) {
@@ -46,14 +51,20 @@ export class ApprovalManagementService {
         });
 
         if (!employee) {
-          this.logger.warn(`!!! THẤT BẠI: Không tìm thấy Employee với userId ${externalUserId}`);
+          const errMsg = `Không tìm thấy Employee với userId ${externalUserId}`;
+          this.logger.warn(`!!! THẤT BẠI: ${errMsg}`);
+          results.failureCount++;
+          results.errors.push({ record_id, message: errMsg });
           continue;
         }
 
         // Xác định loại đơn
         let type = RequestType.LEAVE;
-        if (approvalProcess === ExternalApprovalProcess.OVERTIME) type = RequestType.OVERTIME;
+        if (approvalProcess === ExternalApprovalProcess.REMOTE) type = RequestType.REMOTE;
+        else if (approvalProcess === ExternalApprovalProcess.OVERTIME) type = RequestType.OVERTIME;
         else if (approvalProcess === ExternalApprovalProcess.CORRECTION) type = RequestType.CORRECTION;
+        else if (approvalProcess === ExternalApprovalProcess.MATERNITY) type = RequestType.MATERNITY;
+        else if (approvalProcess === ExternalApprovalProcess.SWAP) type = RequestType.SWAP;
 
         const leaveType = await queryRunner.manager.findOne(LeaveType, {
           where: { leaveTypeName: leaveTypeName, companyId: companyId },
@@ -93,7 +104,7 @@ export class ApprovalManagementService {
         const savedRequest = await queryRunner.manager.save(request);
 
         // 5. XỬ LÝ LƯU BẢNG DETAIL TƯƠNG ỨNG
-        if (type === RequestType.LEAVE) {
+        if (type === RequestType.LEAVE || type === RequestType.REMOTE) {
           let detail = await queryRunner.manager.findOne(RequestDetailTimeOff, {
             where: { attendance_request_id: savedRequest.id },
           });
@@ -103,7 +114,7 @@ export class ApprovalManagementService {
           detail.end_time = endTime;
           detail.hours = savedRequest.total_hours;
           detail.leave_type_id = savedRequest.leave_type_id;
-          detail.leave_type_details = leaveTypeName || '';
+          detail.leave_type_details = leaveTypeName || (type === RequestType.REMOTE ? 'Remote Work' : '');
           await queryRunner.manager.save(detail);
         }
         else if (type === RequestType.OVERTIME) {
@@ -117,13 +128,25 @@ export class ApprovalManagementService {
           otDetail.hours_ratio = savedRequest.total_hours;
           await queryRunner.manager.save(otDetail);
         }
-        else if (type === RequestType.CORRECTION) {
+        else if (type === RequestType.CORRECTION || type === RequestType.MATERNITY || type === RequestType.SWAP) {
           let adjDetail = await queryRunner.manager.findOne(RequestDetailAdjustment, {
             where: { attendance_request_id: savedRequest.id },
           });
           if (!adjDetail) adjDetail = new RequestDetailAdjustment();
           adjDetail.attendance_request_id = savedRequest.id;
-          adjDetail.replenishment_time = startTime;
+
+          if (type === RequestType.CORRECTION) {
+            adjDetail.replenishment_time = startTime;
+          } else if (type === RequestType.MATERNITY) {
+            adjDetail.maternity_start_date = startTime;
+            adjDetail.maternity_end_date = endTime;
+            adjDetail.maternity_shift = fields.maternity_shift || '';
+          } else if (type === RequestType.SWAP) {
+            adjDetail.date_original_shift = startTime; // Giả sử startTime là ngày gốc
+            adjDetail.date_swap_shift = fields.swap_date ? new Date(fields.swap_date) : endTime;
+            adjDetail.employee_id_swap = fields.swap_with_employee?.[0]?.id || '';
+          }
+
           await queryRunner.manager.save(adjDetail);
         }
 
@@ -149,6 +172,8 @@ export class ApprovalManagementService {
             tempDate.setDate(tempDate.getDate() + 1);
           }
         }
+
+        results.successCount++;
       }
 
       this.logger.log(`>>> CHUẨN BỊ COMMIT TRANSACTION....`);
@@ -167,7 +192,11 @@ export class ApprovalManagementService {
           });
       });
 
-      return { success: true, message: `Successfully processed ${items.length} items.` };
+      return {
+        success: results.failureCount === 0,
+        message: `Processed ${items.length} items: ${results.successCount} succeeded, ${results.failureCount} failed.`,
+        data: results
+      };
 
     } catch (error) {
       this.logger.error('!!! LỖI TRONG QUÁ TRÌNH XỬ LÝ - ROLLBACK');

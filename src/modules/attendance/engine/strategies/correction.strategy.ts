@@ -38,7 +38,7 @@ export class CorrectionStrategy {
 
     if (detail?.replenishment_time && rule) {
       const { onTime, offTime } = rule;
-      const correctedTime = new Date(Number(detail.replenishment_time));
+      const correctedTime = new Date(detail.replenishment_time);
       const replenishmentMinutes =
         correctedTime.getHours() * 60 + correctedTime.getMinutes();
 
