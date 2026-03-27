@@ -62,7 +62,7 @@ export class ApprovalManagementService {
         let type = RequestType.LEAVE;
         if (approvalProcess === ExternalApprovalProcess.REMOTE) type = RequestType.REMOTE;
         else if (approvalProcess === ExternalApprovalProcess.OVERTIME) type = RequestType.OVERTIME;
-        else if (approvalProcess === ExternalApprovalProcess.CORRECTION) type = RequestType.CORRECTION;
+        else if (approvalProcess === ExternalApprovalProcess.CORRECTION || (approvalProcess as any) === ExternalApprovalProcess.CORRECTION1) type = RequestType.CORRECTION;
         else if (approvalProcess === ExternalApprovalProcess.MATERNITY) type = RequestType.MATERNITY;
         else if (approvalProcess === ExternalApprovalProcess.SWAP) type = RequestType.SWAP;
 
@@ -70,19 +70,45 @@ export class ApprovalManagementService {
           where: { leaveTypeName: leaveTypeName, companyId: companyId },
         });
 
-        let request = await queryRunner.manager.findOne(AttendanceRequest, {
-          where: { record_id: record_id },
-        });
+        // Logic kiểm tra đồng bộ: nếu synced_database === '1' (đã lưu trên Lark thì bỏ qua)
+        if (fields.synced_database === '1' || String(fields.synced_database) === '1') {
+          this.logger.log(`SKIPPED: record_id ${record_id} đã được đánh dấu synced_database = 1`);
+          continue;
+        }
+
+        const requestCode = fields.request_code?.[0]?.text || '';
+        let request: AttendanceRequest | null = null;
+        
+        if (requestCode) {
+          request = await queryRunner.manager.findOne(AttendanceRequest, {
+            where: { request_id: requestCode, company_id: companyId },
+          });
+        } else {
+          // Backup fallback nếu không có request_code
+          request = await queryRunner.manager.findOne(AttendanceRequest, {
+            where: { record_id: record_id },
+          });
+        }
 
         const oldStatus = request?.status?.toLowerCase();
 
         if (!request) {
           request = new AttendanceRequest();
-          request.record_id = record_id;
+          request.request_id = requestCode;
         }
+        // Luôn cập nhật record_id mới nhất từ webhook
+        request.record_id = record_id;
 
-        const startTime = this.parseTimestamp(fields.start_time);
-        const endTime = this.parseTimestamp(fields.end_time);
+        let startTime: Date;
+        let endTime: Date;
+
+        if (type === RequestType.CORRECTION) {
+          startTime = this.parseTimestamp(fields.date_of_err || fields.start_time);
+          endTime = startTime; // Phiếu sửa lỗi chỉ lấy 1 ngày
+        } else {
+          startTime = this.parseTimestamp(fields.start_time);
+          endTime = this.parseTimestamp(fields.end_time);
+        }
 
         const newStatus = fields.status;
         const isApproved = newStatus?.toLowerCase() === 'approved';
@@ -136,7 +162,8 @@ export class ApprovalManagementService {
           adjDetail.attendance_request_id = savedRequest.id;
 
           if (type === RequestType.CORRECTION) {
-            adjDetail.replenishment_time = startTime;
+            adjDetail.replenishment_time = (fields.replenishment_time ? this.parseTimestamp(fields.replenishment_time) : null) as any;
+            adjDetail.original_record = fields.original_record || '';
           } else if (type === RequestType.MATERNITY) {
             adjDetail.maternity_start_date = startTime;
             adjDetail.maternity_end_date = endTime;

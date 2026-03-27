@@ -7,6 +7,7 @@ export enum ExternalApprovalProcess {
   REMOTE = 'REMOTE',
   OVERTIME = 'OVERTIME',
   CORRECTION = 'CORRECTION',
+  CORRECTION1 = 'CORRECTION1',
   MATERNITY = 'MATERNITY',
   SWAP = 'SWAP',
 }
@@ -82,6 +83,26 @@ export class ExternalApprovalFieldsDto {
   @IsOptional()
   @IsString()
   maternity_shift?: string;
+
+  @ApiPropertyOptional({ example: '2026-03-25T17:00:00.000Z' })
+  @IsOptional()
+  @IsString()
+  date_of_err?: string;
+
+  @ApiPropertyOptional({ example: '0' })
+  @IsOptional()
+  @IsString()
+  synced_database?: string;
+
+  @ApiPropertyOptional({ example: 'Start time 08:00. No record' })
+  @IsOptional()
+  @IsString()
+  original_record?: string;
+
+  @ApiPropertyOptional({ example: '2026-03-26T01:00:00.000Z' })
+  @IsOptional()
+  @IsString()
+  replenishment_time?: string;
 }
 
 export class ExternalApprovalItemDto {

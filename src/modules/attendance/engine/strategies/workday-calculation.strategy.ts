@@ -85,6 +85,9 @@ export class WorkdayCalculationStrategy {
 
     let finalHours = finalMinutes / 60;
 
+    // Lưu giờ thực tế chỉ từ in/out trừ rest
+    context.inOutWorkHours = finalHours;
+
     // Cộng thêm Remote/Công tác
     if (context.onlineValue > 0 || context.businessTripValue > 0) {
       finalHours += context.onlineValue + context.businessTripValue;
