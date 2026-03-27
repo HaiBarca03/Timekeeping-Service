@@ -4,11 +4,12 @@ import { MasterDataService } from './master-data.service';
 import { EmployeesResponseDto } from './dto/employees-response.dto';
 import { CreateEmployeeDto } from './dto/create-employee.dto';
 import { UpdateEmployeeDto } from './dto/update-employee.dto';
+import { CreateManyEmployeesDto } from './dto/create-many-employees.dto';
 
 @ApiTags('master-data')
 @Controller('master-data')
 export class MasterDataController {
-  constructor(private readonly masterDataService: MasterDataService) {}
+  constructor(private readonly masterDataService: MasterDataService) { }
 
   @Get('employees')
   @ApiOperation({
@@ -69,5 +70,26 @@ export class MasterDataController {
     @Body() updateEmployeeDto: UpdateEmployeeDto,
   ) {
     return this.masterDataService.updateEmployee(id, updateEmployeeDto);
+  }
+
+  @Post('employees/bulk')
+  @ApiOperation({
+    summary: 'Tạo mới hàng loạt nhân viên',
+    description: 'Nhận vào một danh sách nhân viên và xử lý lưu trữ',
+  })
+  @ApiBody({ type: CreateManyEmployeesDto }) // Sử dụng DTO bọc mảng
+  async createManyEmployees(@Body() body: CreateManyEmployeesDto) {
+    console.log('body', body);
+    return this.masterDataService.createManyEmployees(body.data);
+  }
+
+  @Post('employees/bulk-update')
+  @ApiOperation({
+    summary: 'Cập nhật hàng loạt nhân viên',
+    description: 'Nhận vào một danh sách nhân viên để cập nhật theo originId/userId',
+  })
+  @ApiBody({ type: CreateManyEmployeesDto })
+  async updateManyEmployees(@Body() body: CreateManyEmployeesDto) {
+    return this.masterDataService.updateManyEmployees(body.data);
   }
 }

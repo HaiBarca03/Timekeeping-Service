@@ -39,6 +39,7 @@ export class LeaveStrategy {
       .innerJoinAndSelect('request.leave_type', 'lt')
       .innerJoinAndSelect('request.detail_time_off', 'detail')
       .where('request.employee_id = :employeeId', { employeeId: employee.id })
+      .andWhere('request.type = :type', { type: RequestType.LEAVE })
       .andWhere('UPPER(request.status) = :status', { status: 'APPROVED' })
       .andWhere('request.is_counted = :isCounted', { isCounted: true })
       .andWhere(

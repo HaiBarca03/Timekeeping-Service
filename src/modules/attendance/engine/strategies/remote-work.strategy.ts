@@ -27,7 +27,6 @@ export class RemoteWorkStrategy {
 
     const remoteRequest = await this.requestRepo
       .createQueryBuilder('request')
-      .innerJoin('request.leave_type', 'lt')
       .innerJoin('request.detail_time_off', 'detail')
       .select('detail.hours', 'hours')
       .where('request.employee_id = :employeeId', { employeeId: employee.id })

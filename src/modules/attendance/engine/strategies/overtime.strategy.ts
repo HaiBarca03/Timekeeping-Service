@@ -38,7 +38,6 @@ export class OvertimeStrategy {
 
     const otRequest = await this.requestRepo
       .createQueryBuilder('request')
-      .innerJoin('request.leave_type', 'lt')
       .innerJoin('request.detail_overtime', 'detail')
       .select([
         'detail.hours_ratio as "hoursRatio"',
