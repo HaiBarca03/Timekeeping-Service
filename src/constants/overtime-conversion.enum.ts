@@ -1,4 +1,4 @@
 export enum OvertimeConversionCode {
-  COMPENSATORY_LEAVE = 'COMP_LEAVE', 
-  PAYMENT = 'PAYMENT',              
+  COMPENSATORY_LEAVE = 'COMPENSATORY_LEAVE',
+  PAYMENT = 'PAYMENT',
 }

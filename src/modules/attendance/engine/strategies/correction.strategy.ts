@@ -30,7 +30,7 @@ export class CorrectionStrategy {
       },
       relations: ['detail_adjustment'],
     });
-
+    console.log('request', request);
     if (!request) return;
 
     const detail = request.detail_adjustment;
