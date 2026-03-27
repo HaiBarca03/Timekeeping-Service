@@ -111,11 +111,13 @@ export class AttendanceController {
     @Query('companyId') companyId: string,
     @Query('month') month: number,
     @Query('year') year: number,
+    @Query('employeeId') employeeId?: string,
   ) {
-    return this.attendanceService.generateMonthlyTimesheet(
+    return this.attendanceService.syncMonthlyTimesheet(
       companyId,
       Number(month),
       Number(year),
+      employeeId,
     );
   }
   @Post('backdate-override')

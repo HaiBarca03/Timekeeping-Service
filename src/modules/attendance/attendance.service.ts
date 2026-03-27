@@ -374,6 +374,18 @@ export class AttendanceService {
         'total_work_days',
       )
 
+      // TỔNG CÔNG (Công tính toán từ số giờ giới hạn - workday_count)
+      .addSelect(
+        `SUM(
+        CASE 
+          WHEN d.is_saturday_candidate = false THEN d.workday_count
+          WHEN d.is_saturday_candidate = true AND sat_rank.ranking <= ${maxWorkSaturdays} THEN d.workday_count
+          ELSE 0 
+        END
+      )`,
+        'workday_count',
+      )
+
       // TỔNG GIỜ LÀM
       .addSelect(
         `SUM(
@@ -433,9 +445,66 @@ export class AttendanceService {
       .where('d.company_id = :companyId', { companyId })
       .andWhere('d.month = :month', { month })
       .andWhere('d.year = :year', { year })
-      .groupBy('d.employee_id');
+      .groupBy('d.employee_id')
+      .addGroupBy('d.user_id')
+      .addSelect('d.user_id', 'user_id');
 
-    // ... (Phần thực thi query và map kết quả giữ nguyên) ...
+    if (employeeId) {
+      query.andWhere('d.employee_id = :employeeId', { employeeId });
+    }
+
+    const results = await query.getRawMany();
+    return results;
+  }
+
+  async syncMonthlyTimesheet(
+    companyId: string,
+    month: number,
+    year: number,
+    employeeId?: string,
+  ) {
+    this.logger.log(
+      `[Monthly Sync] Starting sync for company ${companyId}, month ${month}/${year}`,
+    );
+
+    const aggregatedData = await this.generateMonthlyTimesheet(
+      companyId,
+      month,
+      year,
+      employeeId,
+    );
+
+    this.logger.log(`Aggregated data for ${aggregatedData.length} employees.`);
+
+    const entities = aggregatedData.map((data) => ({
+      company_id: companyId,
+      employee_id: data.employee_id,
+      user_id: data.user_id,
+      month: month,
+      year: year,
+      total_work_days: parseFloat(data.total_work_days || 0),
+      workday_count: parseFloat(data.workday_count || 0),
+      total_work_hours: parseFloat(data.total_work_hours || 0),
+      total_late_minutes: parseInt(data.total_late_minutes || 0),
+      total_late_days: parseInt(data.total_late_days || 0),
+      total_early_leave_minutes: parseInt(data.total_early_leave_minutes || 0),
+      total_ot_hours: parseFloat(data.total_ot_hours || 0),
+      total_leave_days: parseFloat(data.total_leave_days || 0),
+      total_remote_days: parseFloat(data.total_remote_days || 0),
+      total_missing_check: parseInt(data.total_missing_check || 0),
+      last_sync_at: new Date(),
+      confirmation_status: 'pending',
+    }));
+
+    if (entities.length > 0) {
+      await this.monthlyRepo.upsert(entities, {
+        conflictPaths: ['employee_id', 'company_id', 'month', 'year', 'user_id'],
+        skipUpdateIfNoValuesChanged: true,
+      });
+    }
+
+    this.logger.log(`[Monthly Sync] Finished syncing ${entities.length} records.`);
+    return { success: true, count: entities.length };
   }
 
   async createBackdateOverride(data: any): Promise<BackdateOverride> {

@@ -79,6 +79,9 @@ export class AttendanceDailyTimesheet extends BaseEntity {
   @Column({ type: 'decimal', precision: 6, scale: 2, default: 0 })
   total_work_hours_standard: number;
 
+  @Column({ type: 'decimal', precision: 6, scale: 2, default: 0 })
+  workday_count: number;
+
   @Column({ default: false })
   missing_check_in: boolean;
 

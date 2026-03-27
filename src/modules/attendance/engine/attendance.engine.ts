@@ -226,37 +226,43 @@ export class AttendanceEngine {
 
     timesheet.late_minutes = context.totalLateMinutes;
     timesheet.early_leave_minutes = context.totalEarlyMinutes;
-    timesheet.work_minutes = Math.round(context.totalWorkedHours * 60);
-    timesheet.actual_work_hours = context.totalWorkedHours;
+
+    const standardHours = context.shiftContext
+      ? context.shiftContext.getStandardWorkHours(isMaternity, groupCode)
+      : isMaternity && groupCode === 'STORE_GROUP'
+        ? 7
+        : 8;
+
+    timesheet.total_work_hours_standard = standardHours;
+
+    let maxActualWorkHours = standardHours;
+    if (context.employee.is_angel && context.isHoliday) {
+      maxActualWorkHours = standardHours * 2;
+    }
+
+    let cappedActualWorkHours = context.totalWorkedHours;
+    if (cappedActualWorkHours > maxActualWorkHours) {
+      cappedActualWorkHours = maxActualWorkHours;
+    }
+
+    timesheet.actual_work_hours = cappedActualWorkHours;
+    timesheet.work_minutes = Math.round(cappedActualWorkHours * 60);
+
+    timesheet.workday_count = parseFloat((cappedActualWorkHours / standardHours).toFixed(2));
 
     if (context.attendanceGroupCode === 'STORE_GROUP') {
-      const standardHours = context.shiftContext
-        ? context.shiftContext.getStandardWorkHours(isMaternity, groupCode)
-        : isMaternity && groupCode === 'STORE_GROUP'
-          ? 7
-          : 8;
-      timesheet.total_work_hours_standard = standardHours;
-
       if (context.totalWorkedHours > standardHours) {
-        // Nếu làm 10h, ca 8h -> work_hours = 8, redundant = 2
-        timesheet.actual_work_hours = standardHours;
-        timesheet.work_minutes = Math.round(standardHours * 60);
-
         timesheet.is_redundant = true;
-        timesheet.work_hours_redundant =
-          context.totalWorkedHours - standardHours;
+        timesheet.work_hours_redundant = context.totalWorkedHours - standardHours;
       } else {
-        // Nếu làm 4h, ca 8h -> work_hours = 4, redundant = 0
-        timesheet.actual_work_hours = context.totalWorkedHours;
-        timesheet.work_minutes = Math.round(context.totalWorkedHours * 60);
-
         timesheet.is_redundant = false;
         timesheet.work_hours_redundant = 0;
       }
+    } else {
+       // Ensure redundant fields are safe for other groups
+       timesheet.is_redundant = false;
+       timesheet.work_hours_redundant = 0;
     }
-
-    timesheet.total_work_hours_standard =
-      context.shiftContext?.getStandardWorkHours() || 8;
 
     timesheet.rest_minutes = context['totalRestMinutesValue'] || 0;
 
