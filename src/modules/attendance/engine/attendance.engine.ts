@@ -250,6 +250,9 @@ export class AttendanceEngine {
 
     timesheet.workday_count = parseFloat((cappedActualWorkHours / standardHours).toFixed(2));
 
+    timesheet.in_out_work_hours = parseFloat((context.inOutWorkHours || 0).toFixed(2));
+    timesheet.in_out_workday_count = parseFloat(((context.inOutWorkHours || 0) / standardHours).toFixed(2));
+
     if (context.attendanceGroupCode === 'STORE_GROUP') {
       if (context.totalWorkedHours > standardHours) {
         timesheet.is_redundant = true;

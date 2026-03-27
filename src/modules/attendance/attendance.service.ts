@@ -398,6 +398,30 @@ export class AttendanceService {
         'total_work_hours',
       )
 
+      // GIỜ THỰC TẾ (IN/OUT)
+      .addSelect(
+        `SUM(
+        CASE 
+          WHEN d.is_saturday_candidate = false THEN d.in_out_work_hours
+          WHEN d.is_saturday_candidate = true AND sat_rank.ranking <= ${maxWorkSaturdays} THEN d.in_out_work_hours
+          ELSE 0 
+        END
+      )`,
+        'in_out_work_hours',
+      )
+
+      // NGÀY THỰC TẾ (IN/OUT)
+      .addSelect(
+        `SUM(
+        CASE 
+          WHEN d.is_saturday_candidate = false THEN d.in_out_workday_count
+          WHEN d.is_saturday_candidate = true AND sat_rank.ranking <= ${maxWorkSaturdays} THEN d.in_out_workday_count
+          ELSE 0 
+        END
+      )`,
+        'in_out_workday_count',
+      )
+
       // TỔNG PHÚT MUỘN (Chỉ tính cho những ngày được chọn công)
       .addSelect(
         `SUM(
@@ -485,6 +509,8 @@ export class AttendanceService {
       total_work_days: parseFloat(data.total_work_days || 0),
       workday_count: parseFloat(data.workday_count || 0),
       total_work_hours: parseFloat(data.total_work_hours || 0),
+      in_out_work_hours: parseFloat(data.in_out_work_hours || 0),
+      in_out_workday_count: parseFloat(data.in_out_workday_count || 0),
       total_late_minutes: parseInt(data.total_late_minutes || 0),
       total_late_days: parseInt(data.total_late_days || 0),
       total_early_leave_minutes: parseInt(data.total_early_leave_minutes || 0),

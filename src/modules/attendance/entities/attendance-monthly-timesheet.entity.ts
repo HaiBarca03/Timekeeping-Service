@@ -33,6 +33,12 @@ export class AttendanceMonthlyTimesheet extends BaseEntity {
   @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
   total_work_hours: number;
 
+  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
+  in_out_work_hours: number;
+
+  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
+  in_out_workday_count: number;
+
   @Column({ default: 0 })
   total_late_days: number;
 

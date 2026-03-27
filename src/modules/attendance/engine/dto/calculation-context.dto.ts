@@ -38,6 +38,7 @@ export class CalculationContext {
   leaveHours: number = 0;
   leaveValue: number = 0;
   workdayCount: number = 0;
+  inOutWorkHours: number = 0; // Giờ công thực tế chỉ tính từ checkin-checkout trừ nghỉ (không cộng phiếu)
   finalActualWorkday: number = 0;
   finalTotalWorkday: number = 1; // default 1 ngày
 
