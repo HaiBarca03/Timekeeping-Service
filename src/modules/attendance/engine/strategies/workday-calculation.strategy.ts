@@ -48,13 +48,80 @@ export class WorkdayCalculationStrategy {
     // Tìm đoạn này trong WorkdayCalculationStrategy.ts và sửa lại như sau:
 
     let totalDiffMinutes = 0;
+    let inOutWorkMinutes = 0;
+
+    const parseShiftTimeToDate = (baseDate: Date, timeInput: any): Date | null => {
+      if (!timeInput) return null;
+      const result = new Date(baseDate);
+      if (typeof timeInput === 'string') {
+        const parts = timeInput.split(':');
+        result.setHours(Number(parts[0]), Number(parts[1] || 0), 0, 0);
+      } else if (timeInput instanceof Date) {
+        result.setHours(timeInput.getHours(), timeInput.getMinutes(), 0, 0);
+      } else {
+        return null;
+      }
+      return result;
+    };
+
+    const shiftRule = context.shiftContext?.rule;
+    const restRule = context.shiftContext?.restRule;
+
+    let shiftStart: Date | null = null;
+    let shiftEnd: Date | null = null;
+    if (shiftRule && shiftRule.onTime && shiftRule.offTime) {
+      shiftStart = parseShiftTimeToDate(context.date, shiftRule.onTime);
+      shiftEnd = parseShiftTimeToDate(context.date, shiftRule.offTime);
+      if (shiftStart && shiftEnd && shiftEnd < shiftStart) {
+        shiftEnd.setDate(shiftEnd.getDate() + 1);
+      }
+    }
+
+    let restStart: Date | null = null;
+    let restEnd: Date | null = null;
+    if (restRule && restRule.restBeginTime && restRule.restEndTime) {
+      restStart = parseShiftTimeToDate(context.date, restRule.restBeginTime);
+      restEnd = parseShiftTimeToDate(context.date, restRule.restEndTime);
+      if (restStart && restEnd && restEnd < restStart) {
+        restEnd.setDate(restEnd.getDate() + 1);
+      }
+    }
 
     for (const punch of context.punches) {
       const inTime = punch.check_in_actual || punch.check_in_time;
       const outTime = punch.check_out_actual || punch.check_out_time;
 
       if (inTime && outTime) {
-        // KIỂM TRA VI PHẠM: Miss check hoặc Invalid là HỦY CA ĐÓ (0 phút)
+        // Tính số phút in_out_work_hours (bị giới hạn bởi ca làm việc) - PHẢI ĐẶT TRƯỚC LÚC REJECT CA
+        if (shiftStart && shiftEnd) {
+          const actualIn = new Date(inTime);
+          const actualOut = new Date(outTime);
+
+          const effectiveIn = actualIn < shiftStart ? shiftStart : actualIn;
+          const effectiveOut = actualOut > shiftEnd ? shiftEnd : actualOut;
+
+          if (effectiveOut > effectiveIn) {
+            let cappedDiff =
+              (effectiveOut.getTime() - effectiveIn.getTime()) / 60000;
+
+            // Tính thời gian nghỉ (overlapping với thời gian làm việc hiệu dụng)
+            if (restStart && restEnd) {
+              const overlapStart =
+                effectiveIn > restStart ? effectiveIn : restStart;
+              const overlapEnd =
+                effectiveOut < restEnd ? effectiveOut : restEnd;
+              if (overlapEnd > overlapStart) {
+                const restOverlapMin =
+                  (overlapEnd.getTime() - overlapStart.getTime()) / 60000;
+                cappedDiff -= restOverlapMin;
+              }
+            }
+
+            inOutWorkMinutes += Math.max(0, cappedDiff);
+          }
+        }
+
+        // KIỂM TRA VI PHẠM: Miss check hoặc Invalid là HỦY CA ĐÓ (0 phút đối với công chuẩn)
         if (
           punch.miss_check_in ||
           punch.miss_check_out ||
@@ -63,10 +130,10 @@ export class WorkdayCalculationStrategy {
           this.logger.warn(
             `Punch rejected: Violation detected for ca starting at ${inTime}`,
           );
-          continue; // Bỏ qua ca này, không cộng vào tổng
+          continue; // Bỏ qua ca này, không cộng vào tổng công chuẩn
         }
 
-        // Tính số phút của ca này
+        // Tính số phút của ca này cho tổng thời gian lam viec chuẩn (như cũ)
         const diff =
           (new Date(outTime).getTime() - new Date(inTime).getTime()) / 60000;
         totalDiffMinutes += Math.max(0, diff);
@@ -85,8 +152,9 @@ export class WorkdayCalculationStrategy {
 
     let finalHours = finalMinutes / 60;
 
-    // Lưu giờ thực tế chỉ từ in/out trừ rest
-    context.inOutWorkHours = finalHours;
+    // Lưu giờ thực tế chỉ từ in/out trừ rest: Nếu có ca làm việc thì lấy giờ đã giới hạn
+    context.inOutWorkHours =
+      shiftStart && shiftEnd ? inOutWorkMinutes / 60 : finalHours;
 
     // Cộng thêm Remote/Công tác
     if (context.onlineValue > 0 || context.businessTripValue > 0) {
