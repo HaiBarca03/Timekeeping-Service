@@ -51,16 +51,19 @@ export class ExternalApprovalFieldsDto {
   note?: string;
 
   @ApiProperty({ example: '2024-03-20T08:00:00Z' })
+  @IsOptional()
   @IsString()
-  start_time: string;
+  start_time?: string;
 
   @ApiProperty({ example: '2024-03-20T17:30:00Z' })
+  @IsOptional()
   @IsString()
-  end_time: string;
+  end_time?: string;
 
   @ApiProperty({ example: 8.5 })
+  @IsOptional()
   @IsNumber()
-  total_hours: number;
+  total_hours?: number;
 
   @ApiPropertyOptional({ example: 'Nghỉ phép năm' })
   @IsOptional()

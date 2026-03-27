@@ -44,7 +44,7 @@ export class ApprovalManagementService {
         this.logger.log(`--- Đang xử lý record_id: ${record_id} ---`);
 
         const externalUserId = fields.requester?.[0]?.id;
-        const leaveTypeName = fields.leave_type_detail;
+        const typeDetailName = fields.leave_type_detail;
 
         const employee = await queryRunner.manager.findOne(Employee, {
           where: { userId: externalUserId, companyId: companyId },
@@ -66,9 +66,19 @@ export class ApprovalManagementService {
         else if (approvalProcess === ExternalApprovalProcess.MATERNITY) type = RequestType.MATERNITY;
         else if (approvalProcess === ExternalApprovalProcess.SWAP) type = RequestType.SWAP;
 
-        const leaveType = await queryRunner.manager.findOne(LeaveType, {
-          where: { leaveTypeName: leaveTypeName, companyId: companyId },
-        });
+        if (typeDetailName) {
+          const typeDetailLower = typeDetailName.trim().toLowerCase();
+          if (['ANNUAL_LEAVE', 'UNPAID_LEAVE'].includes(typeDetailLower)) {
+            type = RequestType.LEAVE;
+          }
+        }
+
+        let leaveType: LeaveType | null = null;
+        if (type === RequestType.LEAVE && typeDetailName) {
+          leaveType = await queryRunner.manager.findOne(LeaveType, {
+            where: { leaveTypeName: typeDetailName, companyId: companyId },
+          });
+        }
 
         // Logic kiểm tra đồng bộ: nếu synced_database === '1' (đã lưu trên Lark thì bỏ qua)
         if (fields.synced_database === '1' || String(fields.synced_database) === '1') {
@@ -78,7 +88,7 @@ export class ApprovalManagementService {
 
         const requestCode = fields.request_code?.[0]?.text || '';
         let request: AttendanceRequest | null = null;
-        
+
         if (requestCode) {
           request = await queryRunner.manager.findOne(AttendanceRequest, {
             where: { request_id: requestCode, company_id: companyId },
@@ -119,7 +129,7 @@ export class ApprovalManagementService {
         request.employee_id = employee.id;
         request.company_id = companyId;
         request.status = newStatus || '';
-        request.note = leaveTypeName || fields.note || '';
+        request.note = fields.note || (type !== RequestType.CORRECTION && typeDetailName ? typeDetailName : '');
         request.type = type; // Fix: Gán đúng type đã phân loại
         request.applied_date = startTime;
         request.total_hours = fields.total_hours || 0;
@@ -140,7 +150,7 @@ export class ApprovalManagementService {
           detail.end_time = endTime;
           detail.hours = savedRequest.total_hours;
           detail.leave_type_id = savedRequest.leave_type_id;
-          detail.leave_type_details = leaveTypeName || (type === RequestType.REMOTE ? 'Remote Work' : '');
+          detail.leave_type_details = typeDetailName || (type === RequestType.REMOTE ? 'Remote Work' : '');
           await queryRunner.manager.save(detail);
         }
         else if (type === RequestType.OVERTIME) {
