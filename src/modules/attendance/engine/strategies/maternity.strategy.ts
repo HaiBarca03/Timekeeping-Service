@@ -6,6 +6,7 @@ import {
   AttendanceRequest,
   RequestType,
 } from '../../../approval-management/entities/attendance-request.entity';
+import { RequestStatus } from 'src/constants/req-status.contants';
 
 @Injectable()
 export class MaternityStrategy {
@@ -28,7 +29,7 @@ export class MaternityStrategy {
       .innerJoinAndSelect('request.detail_adjustment', 'detail')
       .where('request.employee_id = :employeeId', { employeeId: employee.id })
       .andWhere('request.type = :type', { type: RequestType.MATERNITY })
-      .andWhere('request.status = :status', { status: 'Approved' })
+      .andWhere('request.status = :status', { status: RequestStatus.APPROVED })
       .andWhere('detail.maternity_start_date <= :date', { date: checkDate })
       .andWhere('detail.maternity_end_date >= :date', { date: checkDate })
       .getOne();

@@ -6,6 +6,7 @@ import {
   AttendanceRequest,
   RequestType,
 } from '../../../approval-management/entities/attendance-request.entity';
+import { RequestStatus } from 'src/constants/req-status.contants';
 
 @Injectable()
 export class OvertimeStrategy {
@@ -46,7 +47,7 @@ export class OvertimeStrategy {
       ])
       .where('request.employee_id = :employeeId', { employeeId: employee.id })
       .andWhere('request.type = :type', { type: RequestType.OVERTIME })
-      .andWhere('request.status = :status', { status: 'Approved' })
+      .andWhere('request.status = :status', { status: RequestStatus.APPROVED })
       .andWhere('request.is_counted = :isCounted', { isCounted: true })
       .andWhere('request.applied_date = :date', {
         date: date.toISOString().split('T')[0],

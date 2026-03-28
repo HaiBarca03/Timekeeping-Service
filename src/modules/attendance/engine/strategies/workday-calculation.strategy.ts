@@ -164,6 +164,14 @@ export class WorkdayCalculationStrategy {
     context.totalWorkedHours = finalHours;
 
     // 4. QUY ĐỔI RA CÔNG (WORKDAY)
+    // Nếu đã có CORRECTION được duyệt → giữ nguyên finalActualWorkday = 1 từ CorrectionStrategy
+    if (context['isManualCorrected']) {
+      this.logger.debug(
+        `[WorkdayCalc] isManualCorrected=true: keeping finalActualWorkday=${context.finalActualWorkday}, totalWorkedHours=${finalHours}`,
+      );
+      return;
+    }
+
     // Ví dụ: Làm được 3h / Tổng chuẩn 4h = 0.75 công
     let workedWorkday = context.totalWorkedHours / standardHours;
     if (workedWorkday > 1) workedWorkday = 1;

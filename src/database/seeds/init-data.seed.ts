@@ -397,7 +397,7 @@ export const initDataSeed = async (dataSource: DataSource) => {
   const shiftsData = [
     {
       originId: '7617681822219587098',
-      code: 'CA_HAN_CHINH_1',
+      code: 'VAN_PHONG_1',
       shiftName: 'Ca hanh chinh 1',
       startTime: '08:00',
       endTime: '17:00',
@@ -409,7 +409,7 @@ export const initDataSeed = async (dataSource: DataSource) => {
     },
     {
       originId: '17617686815940365847',
-      code: 'CA_HAN_CHINH_2',
+      code: 'VAN_PHONG_2',
       shiftName: 'Ca hanh chinh 2',
       startTime: '08:30',
       endTime: '17:30',
@@ -627,14 +627,14 @@ export const initDataSeed = async (dataSource: DataSource) => {
       originId: '7617676707973074458',
       code: 'GR_VAN_PHONG_1',
       groupName: 'Ca Văn Phòng 1',
-      shiftCode: 'CA_HANH_CHINH_1', // Map từ 7617681822219587098
+      shiftCode: 'VAN_PHONG_1', // Map từ 7617681822219587098
       companyId,
     },
     {
       originId: '7617681982959554072',
       code: 'GR_VAN_PHONG_2',
       groupName: 'Ca Văn Phòng 2',
-      shiftCode: 'CA_HANH_CHINH_2', // Map từ 17617686815940365847
+      shiftCode: 'VAN_PHONG_2', // Map từ 17617686815940365847
       companyId,
     },
     {

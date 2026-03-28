@@ -8,6 +8,7 @@ import {
 } from '../../../approval-management/entities/attendance-request.entity';
 import { LeavePolicyRule } from '../../../master-data/entities/leave-policy-rule.entity';
 import { LeaveType } from '../../../master-data/entities/leave-type.entity';
+import { RequestStatus } from 'src/constants/req-status.contants';
 
 @Injectable()
 export class LeaveStrategy {
@@ -40,7 +41,7 @@ export class LeaveStrategy {
       .innerJoinAndSelect('request.detail_time_off', 'detail')
       .where('request.employee_id = :employeeId', { employeeId: employee.id })
       .andWhere('request.type = :type', { type: RequestType.LEAVE })
-      .andWhere('UPPER(request.status) = :status', { status: 'APPROVED' })
+      .andWhere('UPPER(request.status) = :status', { status: RequestStatus.APPROVED })
       .andWhere('request.is_counted = :isCounted', { isCounted: true })
       .andWhere(
         ':dateStr BETWEEN detail.start_time::date AND detail.end_time::date',

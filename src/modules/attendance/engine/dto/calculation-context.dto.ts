@@ -41,6 +41,7 @@ export class CalculationContext {
   inOutWorkHours: number = 0; // Giờ công thực tế chỉ tính từ checkin-checkout trừ nghỉ (không cộng phiếu)
   finalActualWorkday: number = 0;
   finalTotalWorkday: number = 1; // default 1 ngày
+  adjustmentHours: number = 0;
 
   dailyTimesheet?: AttendanceDailyTimesheet; // entity để save cuối cùng
 

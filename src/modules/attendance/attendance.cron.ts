@@ -19,11 +19,11 @@ export class AttendanceCronService {
   ) { }
 
   // Chạy mỗi 15 phút một lần từ 1h đêm đến hết 4h sáng (để hoàn thành trước 4h30)
-  @Cron('0 */15 1-4 * * *', {
-    timeZone: 'Asia/Ho_Chi_Minh',
-  })
+  // @Cron('0 */15 1-4 * * *', {
+  //   timeZone: 'Asia/Ho_Chi_Minh',
+  // })
   // 5p để chủ động test dữ liệu, sau này update lại thành 15p mỗi lần từ 1-4h sáng
-  // @Cron('*/2 * * * *')
+  @Cron('*/2 * * * *')
   async handlePunchProcessing() {
     if (this.isProcessing) {
       this.logger.warn('[Cron] Previous job still running, skipping...');

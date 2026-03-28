@@ -1,7 +1,7 @@
 import { MigrationInterface, QueryRunner } from "typeorm";
 
-export class Init1774586216685 implements MigrationInterface {
-    name = 'Init1774586216685'
+export class Init1774664198294 implements MigrationInterface {
+    name = 'Init1774664198294'
 
     public async up(queryRunner: QueryRunner): Promise<void> {
         await queryRunner.query(`ALTER TABLE "attendance_daily_timesheets" ADD "in_out_work_hours" numeric(6,2) NOT NULL DEFAULT '0'`);
