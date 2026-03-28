@@ -124,7 +124,7 @@ export class AttendanceEngine {
     this.breakStrategy.process(context);
 
     if (context.employee.attendanceGroup?.code !== 'STORE_GROUP') {
-      this.lateEarlyStrategy.process(context);
+      await this.lateEarlyStrategy.process(context);
     }
     this.logger.debug(
       `STEP 3 RESULT: Late: ${context.totalLateMinutes}m, Early: ${context.totalEarlyMinutes}m`,
@@ -260,7 +260,7 @@ export class AttendanceEngine {
     timesheet.actual_work_hours = cappedActualWorkHours;
     timesheet.work_minutes = Math.round(cappedActualWorkHours * 60);
 
-    timesheet.workday_count = parseFloat((cappedActualWorkHours / standardHours).toFixed(2));
+    timesheet.workday_count = parseFloat((context.finalActualWorkday ?? (cappedActualWorkHours / standardHours)).toFixed(2));
 
     timesheet.in_out_work_hours = parseFloat((context.inOutWorkHours || 0).toFixed(2));
     timesheet.in_out_workday_count = parseFloat(((context.inOutWorkHours || 0) / standardHours).toFixed(2));

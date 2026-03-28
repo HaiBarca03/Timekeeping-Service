@@ -41,10 +41,10 @@ export class LeaveStrategy {
       .innerJoinAndSelect('request.detail_time_off', 'detail')
       .where('request.employee_id = :employeeId', { employeeId: employee.id })
       .andWhere('request.type = :type', { type: RequestType.LEAVE })
-      .andWhere('UPPER(request.status) = :status', { status: RequestStatus.APPROVED })
+      .andWhere('request.status = :status', { status: RequestStatus.APPROVED })
       .andWhere('request.is_counted = :isCounted', { isCounted: true })
       .andWhere(
-        ':dateStr BETWEEN detail.start_time::date AND detail.end_time::date',
+        ':dateStr BETWEEN CAST(detail.start_time AS DATE) AND CAST(detail.end_time AS DATE)',
         {
           dateStr,
         },
