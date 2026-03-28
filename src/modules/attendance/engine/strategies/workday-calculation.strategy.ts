@@ -13,7 +13,10 @@ export class WorkdayCalculationStrategy {
       `[DEBUG] AllowLate from Shift Rule: ${context.shiftContext?.rule?.allowLateMinutes}`,
     );
     // 1. XỬ LÝ NGÀY NGHỈ CHẾ ĐỘ (OFF DAY / HOLIDAY)
-    if (context.isConfiguredOffDay || context.isHoliday) {
+    const isHolidayForAngel = context.isHoliday && context.employee.is_angel;
+
+    // Nếu không phải là ngày Holiday cho Angel, thì mới áp dụng luật clear công của OffDay/Holiday bình thường
+    if ((context.isConfiguredOffDay || context.isHoliday) && !isHolidayForAngel) {
       context.totalWorkedHours = 0;
       // Nếu là lễ, finalActualWorkday đã được set = 1.0 ở Resolver,
       // nếu là ngày nghỉ bình thường (Chủ nhật/T7) thì = 0.
@@ -184,7 +187,13 @@ export class WorkdayCalculationStrategy {
       (context.latePenalty || 0) + (context.earlyPenalty || 0);
     totalFinalWorkday = Math.max(0, totalFinalWorkday - totalPenalty);
 
-    context.finalActualWorkday = totalFinalWorkday > 1 ? 1 : totalFinalWorkday;
+    if (isHolidayForAngel) {
+      // Cộng thêm 1 công mặc định của ngày lễ
+      totalFinalWorkday += 1;
+      context.finalActualWorkday = totalFinalWorkday > 2 ? 2 : totalFinalWorkday;
+    } else {
+      context.finalActualWorkday = totalFinalWorkday > 1 ? 1 : totalFinalWorkday;
+    }
 
     this.logger.debug(
       `FINAL: Worked=${context.totalWorkedHours}h / Std=${standardHours}h -> Workday=${context.finalActualWorkday}`,
