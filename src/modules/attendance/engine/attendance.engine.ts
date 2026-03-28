@@ -290,9 +290,9 @@ export class AttendanceEngine {
     timesheet.leave_hours = context.leaveHours ?? 0;
 
     timesheet.is_remote = context.onlineValue + context.businessTripValue > 0;
-    timesheet.remote_hours =
-      (context.onlineValue + context.businessTripValue) *
-      timesheet.total_work_hours_standard;
+    // remote_hours lưu số giờ thực tế (raw hours, không nhân thêm standardHours)
+    // onlineValue/businessTripValue là fraction (hours/standardHours) dùng cho workday calc
+    timesheet.remote_hours = context.onlineValue + context.businessTripValue;
 
     timesheet.is_ot = (context.overtimeMinutes ?? 0) > 0;
     timesheet.ot_hours = (context.overtimeMinutes ?? 0) / 60;

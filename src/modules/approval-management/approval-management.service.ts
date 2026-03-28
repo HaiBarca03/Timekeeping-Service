@@ -120,11 +120,15 @@ export class ApprovalManagementService {
           endTime = this.parseTimestamp(fields.end_time);
         }
 
-        const newStatus = fields.status;
-        const isApproved = newStatus?.toLowerCase() === 'approved';
-        const wasApproved = oldStatus === 'approved';
-        const isRejected = newStatus?.toLowerCase() === 'rejected';
+        const rawStatus = fields.status || '';
+        const newStatus = rawStatus.toLowerCase();
 
+        const isApproved = newStatus === 'approved';
+        const wasApproved = oldStatus === 'approved';
+        const isRejected = newStatus === 'rejected';
+
+        console.log('newStatus', newStatus)
+        console.log('oldStatus', oldStatus)
         request.request_id = fields.request_code?.[0]?.text || '';
         request.employee_id = employee.id;
         request.company_id = companyId;
