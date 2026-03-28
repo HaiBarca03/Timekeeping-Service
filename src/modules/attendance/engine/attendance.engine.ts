@@ -195,7 +195,7 @@ export class AttendanceEngine {
     context: CalculationContext,
   ): Promise<AttendanceDailyTimesheet> {
     const groupCode = context.employee.attendanceGroup?.code;
-    const isMaternity = !!context.employee['is_maternity_shift'];
+    const isMaternity = context.isMaternityShift || !!context.employee['is_maternity_shift'];
     let timesheet =
       (await this.timesheetRepo.findOne({
         where: {
