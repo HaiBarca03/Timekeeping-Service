@@ -6,6 +6,7 @@ import {
   AttendanceRequest,
   RequestType,
 } from '../../../approval-management/entities/attendance-request.entity';
+import { RequestStatus } from 'src/constants/req-status.contants';
 
 @Injectable()
 export class RemoteWorkStrategy {
@@ -31,7 +32,7 @@ export class RemoteWorkStrategy {
       .select('detail.hours', 'hours')
       .where('request.employee_id = :employeeId', { employeeId: employee.id })
       .andWhere('request.type = :type', { type: RequestType.REMOTE })
-      .andWhere('request.status = :status', { status: 'Approved' })
+      .andWhere('request.status = :status', { status: RequestStatus.APPROVED })
       .andWhere('request.is_counted = :isCounted', { isCounted: true })
       .andWhere(
         ':date BETWEEN CAST(detail.start_time AS DATE) AND CAST(detail.end_time AS DATE)',

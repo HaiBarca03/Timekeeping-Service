@@ -1,9 +1,10 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Inject, forwardRef } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In, DataSource } from 'typeorm';
 import { AttendancePunchRecord } from './entities/attendance-punch-record.entity';
 import { AttendanceEngine } from './engine/attendance.engine';
+import { AttendanceService } from './attendance.service';
 import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
@@ -16,14 +17,17 @@ export class AttendanceCronService {
     private readonly punchRepo: Repository<AttendancePunchRecord>,
     private readonly attendanceEngine: AttendanceEngine,
     private readonly dataSource: DataSource,
+    @Inject(forwardRef(() => AttendanceService))
+    private readonly attendanceService: AttendanceService,
   ) { }
 
-  // Chạy mỗi 15 phút một lần từ 1h đêm đến hết 4h sáng (để hoàn thành trước 4h30)
-  @Cron('0 */15 1-4 * * *', {
+  // Chạy mỗi 15 phút một lần từ 1h đêm đến 4h sáng (để hoàn thành trước 4h30)
+  @Cron('*/15 1-3 * * *', {
     timeZone: 'Asia/Ho_Chi_Minh',
   })
-  // 5p để chủ động test dữ liệu, sau này update lại thành 15p mỗi lần từ 1-4h sáng
-  // @Cron('*/2 * * * *')
+  @Cron('0,15 4 * * *', {
+    timeZone: 'Asia/Ho_Chi_Minh',
+  })
   async handlePunchProcessing() {
     if (this.isProcessing) {
       this.logger.warn('[Cron] Previous job still running, skipping...');
@@ -163,5 +167,44 @@ export class AttendanceCronService {
     }
 
     return Array.from(taskMap.values());
+  }
+
+  // Chạy vào 4h30 sáng mỗi ngày để tính công tháng
+  @Cron('30 4 * * *', {
+    timeZone: 'Asia/Ho_Chi_Minh',
+  })
+  async handleMonthlyCalculation() {
+    this.logger.log(`[Cron] Starting monthly calculation...`);
+    try {
+      // Lấy danh sách tất cả các company_id từ database
+      const query = `SELECT id FROM companies`;
+      const companies = await this.dataSource.query(query);
+
+      // Tính công cho tháng chứa ngày "hôm qua". 
+      // Do chạy ở đầu ngày mới (VD: sáng 1/5 sẽ tính cho tháng 4)
+      const calcDate = new Date();
+      calcDate.setDate(calcDate.getDate() - 1);
+      const month = calcDate.getMonth() + 1; // getMonth() trả về 0-11
+      const year = calcDate.getFullYear();
+
+      for (const company of companies) {
+        this.logger.log(`[Cron] Syncing monthly timesheet for company ${company.id}, ${month}/${year}`);
+        try {
+          // Gọi hàm tính công tháng (tự lưu/update vào DB)
+          await this.attendanceService.syncMonthlyTimesheet(
+            company.id,
+            month,
+            year,
+            undefined, // tính cho toàn bộ nhân viên
+          );
+        } catch (err: any) {
+          this.logger.error(`[Cron] Error syncing company ${company.id}: ${err.message}`);
+        }
+      }
+
+      this.logger.log(`[Cron] Finished monthly calculation.`);
+    } catch (error: any) {
+      this.logger.error(`[Cron] Fatal Monthly Calculation: ${error.message}`);
+    }
   }
 }

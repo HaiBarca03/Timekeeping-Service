@@ -124,7 +124,7 @@ export class AttendanceEngine {
     this.breakStrategy.process(context);
 
     if (context.employee.attendanceGroup?.code !== 'STORE_GROUP') {
-      this.lateEarlyStrategy.process(context);
+      await this.lateEarlyStrategy.process(context);
     }
     this.logger.debug(
       `STEP 3 RESULT: Late: ${context.totalLateMinutes}m, Early: ${context.totalEarlyMinutes}m`,
@@ -146,8 +146,20 @@ export class AttendanceEngine {
 
     this.logger.debug(`STEP 6: WORKDAY CALCULATION START`);
     this.workdayStrategy.process(context);
+
+    // Sau workday calc: tính adjustmentHours nếu có CORRECTION
+    // = standardHours - giờ thực tế chấm (phần giờ được bù thêm nhờ correction)
+    if (context['isManualCorrected']) {
+      const stdH = context['correctionStandardHours'] as number || 8;
+      // Dùng inOutWorkHours (bounded bởi shift) thay vì totalWorkedHours (raw từ punch)
+      // VD: check-in 7:55 nhưng ca 8:00 → inOutWorkHours tính từ 8:00
+      context.adjustmentHours = parseFloat(
+        Math.max(0, stdH - (context.inOutWorkHours || 0)).toFixed(2),
+      );
+    }
+
     this.logger.debug(
-      `STEP 6 RESULT: Final Workday: ${context.finalActualWorkday}, Total Hours: ${context.totalWorkedHours}`,
+      `STEP 6 RESULT: Final Workday: ${context.finalActualWorkday}, Total Hours: ${context.totalWorkedHours}, AdjustmentHours: ${context.adjustmentHours}`,
     );
 
     this.logger.debug(`STEP 7: SAVE OR UPDATE TIMESHEET`);
@@ -183,7 +195,7 @@ export class AttendanceEngine {
     context: CalculationContext,
   ): Promise<AttendanceDailyTimesheet> {
     const groupCode = context.employee.attendanceGroup?.code;
-    const isMaternity = !!context.employee['is_maternity_shift'];
+    const isMaternity = context.isMaternityShift || !!context.employee['is_maternity_shift'];
     let timesheet =
       (await this.timesheetRepo.findOne({
         where: {
@@ -248,7 +260,7 @@ export class AttendanceEngine {
     timesheet.actual_work_hours = cappedActualWorkHours;
     timesheet.work_minutes = Math.round(cappedActualWorkHours * 60);
 
-    timesheet.workday_count = parseFloat((cappedActualWorkHours / standardHours).toFixed(2));
+    timesheet.workday_count = parseFloat((context.finalActualWorkday ?? (cappedActualWorkHours / standardHours)).toFixed(2));
 
     timesheet.in_out_work_hours = parseFloat((context.inOutWorkHours || 0).toFixed(2));
     timesheet.in_out_workday_count = parseFloat(((context.inOutWorkHours || 0) / standardHours).toFixed(2));
@@ -262,9 +274,9 @@ export class AttendanceEngine {
         timesheet.work_hours_redundant = 0;
       }
     } else {
-       // Ensure redundant fields are safe for other groups
-       timesheet.is_redundant = false;
-       timesheet.work_hours_redundant = 0;
+      // Ensure redundant fields are safe for other groups
+      timesheet.is_redundant = false;
+      timesheet.work_hours_redundant = 0;
     }
 
     timesheet.rest_minutes = context['totalRestMinutesValue'] || 0;
@@ -278,13 +290,13 @@ export class AttendanceEngine {
     timesheet.leave_hours = context.leaveHours ?? 0;
 
     timesheet.is_remote = context.onlineValue + context.businessTripValue > 0;
-    timesheet.remote_hours =
-      (context.onlineValue + context.businessTripValue) *
-      timesheet.total_work_hours_standard;
+    // remote_hours lưu số giờ thực tế (raw hours, không nhân thêm standardHours)
+    // onlineValue/businessTripValue là fraction (hours/standardHours) dùng cho workday calc
+    timesheet.remote_hours = context.onlineValue + context.businessTripValue;
 
     timesheet.is_ot = (context.overtimeMinutes ?? 0) > 0;
     timesheet.ot_hours = (context.overtimeMinutes ?? 0) / 60;
-
+    timesheet.adjustment_hours = context.adjustmentHours;
     const currentWorkday = context.finalActualWorkday ?? 0;
 
     if (currentWorkday >= 1) timesheet.attendance_status = 'Full';

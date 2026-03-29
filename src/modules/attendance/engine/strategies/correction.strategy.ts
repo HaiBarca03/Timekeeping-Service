@@ -6,6 +6,7 @@ import {
   AttendanceRequest,
   RequestType,
 } from '../../../approval-management/entities/attendance-request.entity';
+import { RequestStatus } from 'src/constants/req-status.contants';
 
 @Injectable()
 export class CorrectionStrategy {
@@ -24,37 +25,82 @@ export class CorrectionStrategy {
       where: {
         employee_id: employee.id,
         applied_date: dateString as any,
-        status: 'APPROVED',
+        status: RequestStatus.APPROVED,
         type: RequestType.CORRECTION,
         is_counted: true,
       },
       relations: ['detail_adjustment'],
     });
-    console.log('request', request);
+
     if (!request) return;
 
     const detail = request.detail_adjustment;
+    if (!detail?.replenishment_time) return;
+
     const rule = shiftContext?.rule;
 
-    if (detail?.replenishment_time && rule) {
-      const { onTime, offTime } = rule;
-      const correctedTime = new Date(detail.replenishment_time);
-      const replenishmentMinutes =
-        correctedTime.getHours() * 60 + correctedTime.getMinutes();
-
-      const parseMin = (timeStr: any) => {
-        if (typeof timeStr !== 'string' || !timeStr.includes(':')) return 0;
-        const [h, m] = timeStr.split(':').map(Number);
+    const parseMin = (timeInput: any): number => {
+      if (!timeInput) return -1;
+      if (timeInput instanceof Date) {
+        return timeInput.getHours() * 60 + timeInput.getMinutes();
+      }
+      if (typeof timeInput === 'string' && timeInput.includes(':')) {
+        const [h, m] = timeInput.split(':').map(Number);
         return h * 60 + m;
-      };
+      }
+      return -1;
+    };
 
-      const onMinutes = parseMin(onTime);
-      const offMinutes = parseMin(offTime);
+    const replenishmentTime = new Date(detail.replenishment_time);
+    const replenishMinutes =
+      replenishmentTime.getHours() * 60 + replenishmentTime.getMinutes();
 
-      if (
-        Math.abs(replenishmentMinutes - onMinutes) <
-        Math.abs(replenishmentMinutes - offMinutes)
-      ) {
+    // Xác định check-in hay check-out cần bù:
+    // Bước 1: parse keyword từ original_record (ưu tiên, rõ ràng nhất)
+    //   "Start time 08:00. No record" → check-in bị thiếu
+    //   "End time 17:00. No record"   → check-out bị thiếu
+    // Bước 2 (fallback): nếu không có keyword rõ ràng (VD: check-in sai giờ 8h10 → sửa 8h)
+    //   → so khoảng cách replenishment_time với onTime vs offTime
+    const originalRecord = (detail.original_record || '').toLowerCase();
+    let isCheckInCorrection: boolean;
+
+    if (
+      originalRecord.includes('start time') ||
+      originalRecord.includes('check-in') ||
+      originalRecord.includes('checkin')
+    ) {
+      isCheckInCorrection = true;
+    } else if (
+      originalRecord.includes('end time') ||
+      originalRecord.includes('check-out') ||
+      originalRecord.includes('checkout')
+    ) {
+      isCheckInCorrection = false;
+    } else if (rule) {
+      const onMinutes = parseMin(rule.onTime);
+      const offMinutes = parseMin(rule.offTime);
+
+      if (onMinutes >= 0 && offMinutes >= 0) {
+        isCheckInCorrection =
+          Math.abs(replenishMinutes - onMinutes) <=
+          Math.abs(replenishMinutes - offMinutes);
+      } else {
+        isCheckInCorrection = true; // default: check-in
+      }
+    } else {
+      isCheckInCorrection = true; // default
+    }
+
+    // Log kết quả xác định loại correction
+    if (isCheckInCorrection) {
+      this.logger.log(`[CORRECTION] Bù check-in: ${replenishmentTime.toISOString()}`);
+    } else {
+      this.logger.log(`[CORRECTION] Bù check-out: ${replenishmentTime.toISOString()}`);
+    }
+
+    // Reset penalty tương ứng
+    if (rule) {
+      if (isCheckInCorrection) {
         context.totalLateMinutes = 0;
         context.latePenalty = 0;
       } else {
@@ -63,7 +109,9 @@ export class CorrectionStrategy {
       }
     }
 
-    //việc giảm 1h nếu là STORE_GROUP + Thai sản
+    // Đã được duyệt correction → xóa penalty thiếu chấm, tính đủ công
+    context.missPenalty = 0;
+
     const standardHours =
       shiftContext?.getStandardWorkHours(
         context.isMaternityShift,
@@ -71,12 +119,13 @@ export class CorrectionStrategy {
       ) || 8;
 
     const calculatedWorkday = standardHours / 8;
-
-    context.missPenalty = 0;
     context.finalActualWorkday = calculatedWorkday;
     context.finalTotalWorkday = calculatedWorkday;
 
+    // adjustmentHours sẽ được tính ở engine sau workday calc:
+    // = standardHours - totalWorkedHours (giờ được bù thêm nhờ correction)
     context['isManualCorrected'] = true;
+    context['correctionStandardHours'] = standardHours;
     this.logger.log(
       `[CORRECTION] Result: ${calculatedWorkday} công (Standard Hours: ${standardHours}h)`,
     );

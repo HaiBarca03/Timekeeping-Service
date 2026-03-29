@@ -2,14 +2,22 @@ import { Injectable, Logger } from '@nestjs/common';
 import { differenceInMinutes } from 'date-fns';
 import { CalculationContext } from '../dto/calculation-context.dto';
 import { RuleFactoryService } from '../services/rule-factory.service';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { AttendanceRequest, RequestType } from '../../../approval-management/entities/attendance-request.entity';
+import { RequestStatus } from 'src/constants/req-status.contants';
 
 @Injectable()
 export class LateEarlyStrategy {
   private readonly logger = new Logger(LateEarlyStrategy.name);
 
-  constructor(private ruleFactory: RuleFactoryService) { }
+  constructor(
+    private ruleFactory: RuleFactoryService,
+    @InjectRepository(AttendanceRequest)
+    private requestRepo: Repository<AttendanceRequest>,
+  ) { }
 
-  process(context: CalculationContext): void {
+  async process(context: CalculationContext): Promise<void> {
     this.logger.debug(
       `[DEBUG] Effective AllowLate from Context: ${context['allowLateMinutes']}`,
     );
@@ -37,6 +45,23 @@ export class LateEarlyStrategy {
 
     const shiftStart = context.shiftContext.rule.onTime;
     const shiftEnd = context.shiftContext.rule.offTime;
+
+    const dateStr = context.date.toISOString().split('T')[0];
+
+    const approvedRequests = await this.requestRepo
+      .createQueryBuilder('request')
+      .innerJoinAndSelect('request.detail_time_off', 'detail')
+      .where('request.employee_id = :employeeId', { employeeId: context.employee.id })
+      .andWhere('request.type IN (:...types)', { types: [RequestType.LEAVE, RequestType.REMOTE] })
+      .andWhere('request.status = :status', { status: RequestStatus.APPROVED })
+      .andWhere('request.is_counted = :isCounted', { isCounted: true })
+      .andWhere(
+        ':dateStr BETWEEN CAST(detail.start_time AS DATE) AND CAST(detail.end_time AS DATE)',
+        { dateStr }
+      )
+      .getMany();
+
+    context['dailyRequests'] = approvedRequests || [];
 
     let totalLate = 0;
     let totalEarly = 0;
@@ -176,12 +201,32 @@ export class LateEarlyStrategy {
     context: CalculationContext,
     shiftStart: Date,
   ): boolean {
-    this.logger.debug('Checking leave at shift start');
+    const leaves = (context['dailyRequests'] || []).filter((r: any) => r.type === RequestType.LEAVE);
+    for (const l of leaves) {
+      if (!l.detail_time_off) continue;
+      const start = new Date(l.detail_time_off.start_time);
+      const startH = start.getHours();
+      // If leave starts in the morning (e.g. <= shiftStart or before noon)
+      if (startH <= shiftStart.getHours() + 1) {
+        this.logger.debug('Negated Late penalty due to morning Leave');
+        return true;
+      }
+    }
     return false;
   }
 
   private hasLeaveEnd(context: CalculationContext, shiftEnd: Date): boolean {
-    this.logger.debug('Checking leave at shift end');
+    const leaves = (context['dailyRequests'] || []).filter((r: any) => r.type === RequestType.LEAVE);
+    for (const l of leaves) {
+      if (!l.detail_time_off) continue;
+      const end = new Date(l.detail_time_off.end_time);
+      const endH = end.getHours();
+      // If leave ends in the afternoon (e.g. >= shiftEnd or after noon)
+      if (endH >= shiftEnd.getHours() - 1) {
+        this.logger.debug('Negated Early penalty due to afternoon Leave');
+        return true;
+      }
+    }
     return false;
   }
 
@@ -189,12 +234,30 @@ export class LateEarlyStrategy {
     context: CalculationContext,
     shiftStart: Date,
   ): boolean {
-    this.logger.debug('Checking remote at shift start');
+    const remotes = (context['dailyRequests'] || []).filter((r: any) => r.type === RequestType.REMOTE);
+    for (const r of remotes) {
+      if (!r.detail_time_off) continue;
+      const start = new Date(r.detail_time_off.start_time);
+      const startH = start.getHours();
+      if (startH <= shiftStart.getHours() + 1) {
+        this.logger.debug('Negated Late penalty due to morning Remote');
+        return true;
+      }
+    }
     return false;
   }
 
   private hasRemoteEnd(context: CalculationContext, shiftEnd: Date): boolean {
-    this.logger.debug('Checking remote at shift end');
+    const remotes = (context['dailyRequests'] || []).filter((r: any) => r.type === RequestType.REMOTE);
+    for (const r of remotes) {
+      if (!r.detail_time_off) continue;
+      const end = new Date(r.detail_time_off.end_time);
+      const endH = end.getHours();
+      if (endH >= shiftEnd.getHours() - 1) {
+        this.logger.debug('Negated Early penalty due to afternoon Remote');
+        return true;
+      }
+    }
     return false;
   }
 }

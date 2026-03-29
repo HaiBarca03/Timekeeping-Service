@@ -8,6 +8,7 @@ import {
 } from '../../../approval-management/entities/attendance-request.entity';
 import { ShiftContext } from '../dto/shift-context.dto';
 import { ShiftAssignment } from '../../entities/shift-assignment.entity';
+import { RequestStatus } from 'src/constants/req-status.contants';
 
 @Injectable()
 export class SwapStrategy {
@@ -36,14 +37,14 @@ export class SwapStrategy {
           employee_id: employee.id,
           applied_date: dateString as any,
           type: RequestType.SWAP,
-          status: 'Approved',
+          status: RequestStatus.APPROVED,
           is_counted: true,
         },
         {
           detail_adjustment: { employee_id_swap: employee.id },
           applied_date: dateString as any,
           type: RequestType.SWAP,
-          status: 'Approved',
+          status: RequestStatus.APPROVED,
           is_counted: true,
         },
       ],

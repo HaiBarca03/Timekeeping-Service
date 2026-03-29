@@ -76,10 +76,10 @@ export class ApprovalManagementService {
         let leaveType: LeaveType | null = null;
         if (type === RequestType.LEAVE && typeDetailName) {
           leaveType = await queryRunner.manager.findOne(LeaveType, {
-            where: { leaveTypeName: typeDetailName, companyId: companyId },
+            where: { code: typeDetailName, companyId: companyId },
           });
         }
-
+        console.log('leaveType', leaveType)
         // Logic kiểm tra đồng bộ: nếu synced_database === '1' (đã lưu trên Lark thì bỏ qua)
         if (fields.synced_database === '1' || String(fields.synced_database) === '1') {
           this.logger.log(`SKIPPED: record_id ${record_id} đã được đánh dấu synced_database = 1`);
@@ -120,11 +120,15 @@ export class ApprovalManagementService {
           endTime = this.parseTimestamp(fields.end_time);
         }
 
-        const newStatus = fields.status;
-        const isApproved = newStatus?.toLowerCase() === 'approved';
-        const wasApproved = oldStatus === 'approved';
-        const isRejected = newStatus?.toLowerCase() === 'rejected';
+        const rawStatus = fields.status || '';
+        const newStatus = rawStatus.toLowerCase();
 
+        const isApproved = newStatus === 'approved';
+        const wasApproved = oldStatus === 'approved';
+        const isRejected = newStatus === 'rejected';
+
+        console.log('newStatus', newStatus)
+        console.log('oldStatus', oldStatus)
         request.request_id = fields.request_code?.[0]?.text || '';
         request.employee_id = employee.id;
         request.company_id = companyId;
