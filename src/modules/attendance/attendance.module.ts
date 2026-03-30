@@ -14,6 +14,10 @@ import { BackdateOverride } from './entities/backdate_overrides.entity';
 import { AttendanceCronService } from './attendance.cron';
 import { Shift } from '../master-data/entities/shift.entity';
 import { AttendanceGroup } from '../master-data/entities/attendance-group.entity';
+import { Holiday } from './entities/holidays.entity';
+import { Company } from '../master-data/entities/company.entity';
+import { CalendarController } from './calendar.controller';
+import { CalendarService } from './calendar.service';
 
 @Module({
   imports: [
@@ -28,11 +32,13 @@ import { AttendanceGroup } from '../master-data/entities/attendance-group.entity
       Shift,
       AttendanceGroup,
       Employee,
+      Holiday,
+      Company,
     ]),
     forwardRef(() => AttendanceEngineModule),
   ],
-  controllers: [AttendanceController],
-  providers: [AttendanceService, AttendanceCronService],
-  exports: [AttendanceEngineModule, TypeOrmModule, AttendanceService],
+  controllers: [AttendanceController, CalendarController],
+  providers: [AttendanceService, AttendanceCronService, CalendarService],
+  exports: [AttendanceEngineModule, TypeOrmModule, AttendanceService, CalendarService],
 })
 export class AttendanceModule { }
