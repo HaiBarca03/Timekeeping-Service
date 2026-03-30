@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { ATTENDANCE_GROUPS } from 'src/constants/attendance-group.constants';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CalculationContext } from '../dto/calculation-context.dto';
@@ -137,7 +138,7 @@ export class LeaveStrategy {
     const standardHours = shiftContext?.getStandardWorkHours() || 8;
 
     if (dayTotalLeaveHours > 0 && mainLeaveType) {
-      if (employee.attendanceGroup?.code === 'STORE_GROUP') {
+      if (employee.attendanceGroup?.code === ATTENDANCE_GROUPS.STORE_GROUP_1 || employee.attendanceGroup?.code === ATTENDANCE_GROUPS.STORE_GROUP_2) {
         /**
          * SRS: Đối với Nhân viên Khối Cửa hàng: Nghỉ tròn ngày
          */

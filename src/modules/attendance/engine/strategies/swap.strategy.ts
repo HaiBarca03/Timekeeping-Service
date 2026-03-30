@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { ATTENDANCE_GROUPS } from 'src/constants/attendance-group.constants';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CalculationContext } from '../dto/calculation-context.dto';
@@ -26,7 +27,9 @@ export class SwapStrategy {
     const groupCode = employee.attendanceGroup?.code;
 
     // 1. CHỈ ÁP DỤNG CHO KHỐI CỬA HÀNG
-    if (groupCode !== 'STORE_GROUP') return;
+    if (groupCode !== ATTENDANCE_GROUPS.STORE_GROUP_1 && groupCode !== ATTENDANCE_GROUPS.STORE_GROUP_2) {
+      return;
+    }
 
     const dateString = date.toISOString().split('T')[0];
 

@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { ATTENDANCE_GROUPS } from 'src/constants/attendance-group.constants';
 import { InjectRepository } from '@nestjs/typeorm';
 import {
   Brackets,
@@ -110,7 +111,7 @@ export class AttendanceEngine {
     );
 
     this.logger.debug(`STEP 2: PUNCH PROCESSING START`);
-    if (context.employee.attendanceGroup?.code === 'STORE_GROUP') {
+    if (context.employee.attendanceGroup?.code === ATTENDANCE_GROUPS.STORE_GROUP_1 || context.employee.attendanceGroup?.code === ATTENDANCE_GROUPS.STORE_GROUP_2) {
       const rawPunches = await this.punchStrategy.getRawPunches(context);
       this.storePunchStrategy.process(context, rawPunches);
     } else {
@@ -123,7 +124,9 @@ export class AttendanceEngine {
     this.logger.debug(`STEP 3: BREAK & LATE-EARLY STRATEGY START`);
     this.breakStrategy.process(context);
 
-    if (context.employee.attendanceGroup?.code !== 'STORE_GROUP') {
+    const code = context.employee.attendanceGroup?.code;
+
+    if (code !== ATTENDANCE_GROUPS.STORE_GROUP_1 && code !== ATTENDANCE_GROUPS.STORE_GROUP_2) {
       await this.lateEarlyStrategy.process(context);
     }
     this.logger.debug(
@@ -241,7 +244,7 @@ export class AttendanceEngine {
 
     const standardHours = context.shiftContext
       ? context.shiftContext.getStandardWorkHours(isMaternity, groupCode)
-      : isMaternity && groupCode === 'STORE_GROUP'
+      : isMaternity && (groupCode === ATTENDANCE_GROUPS.STORE_GROUP_1 || groupCode === ATTENDANCE_GROUPS.STORE_GROUP_2)
         ? 7
         : 8;
 
@@ -265,7 +268,7 @@ export class AttendanceEngine {
     timesheet.in_out_work_hours = parseFloat((context.inOutWorkHours || 0).toFixed(2));
     timesheet.in_out_workday_count = parseFloat(((context.inOutWorkHours || 0) / standardHours).toFixed(2));
 
-    if (context.attendanceGroupCode === 'STORE_GROUP') {
+    if (context.attendanceGroupCode === ATTENDANCE_GROUPS.STORE_GROUP_1 || context.attendanceGroupCode === ATTENDANCE_GROUPS.STORE_GROUP_2) {
       if (context.totalWorkedHours > standardHours) {
         timesheet.is_redundant = true;
         timesheet.work_hours_redundant = context.totalWorkedHours - standardHours;

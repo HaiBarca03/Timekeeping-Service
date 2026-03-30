@@ -51,5 +51,6 @@ export class CalculationContext {
     this.companyId = employee.companyId;
     this.companyName = employee.company?.companyName || 'UNKNOWN';
     this.attendanceGroupName = employee.attendanceGroup?.groupName;
+    this.attendanceGroupCode = employee.attendanceGroup?.code;
   }
 }

@@ -125,8 +125,6 @@ yarn migration:revert
 
 # Run Seeders
 yarn seed:run
-# OR (depending on local setup)
-yarn seed-v2:run
 ```
 
 ---
