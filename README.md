@@ -7,77 +7,150 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/NestJS-11-red" />
-  <img src="https://img.shields.io/badge/REST-Swagger-blue" />
-  <img src="https://img.shields.io/badge/TypeORM-PostgreSQL-green" />
+  <img src="https://img.shields.io/badge/NestJS-11-E0234E?style=for-the-badge&logo=nestjs&logoColor=white" alt="NestJS" />
+  <img src="https://img.shields.io/badge/PostgreSQL-316192?style=for-the-badge&logo=postgresql&logoColor=white" alt="PostgreSQL" />
+  <img src="https://img.shields.io/badge/TypeORM-FE0803?style=for-the-badge&logo=typeorm&logoColor=white" alt="TypeORM" />
+  <img src="https://img.shields.io/badge/Docker-2CA5E0?style=for-the-badge&logo=docker&logoColor=white" alt="Docker" />
+  <img src="https://img.shields.io/badge/Swagger-85EA2D?style=for-the-badge&logo=swagger&logoColor=black" alt="Swagger" />
 </p>
 
 ---
 
-## Description
+## 📖 Overview
 
-Backend service cho hệ thống **chấm công & quản lý nhân sự** (Timekeeping & HR Management).
-Hệ thống được thiết kế dưới dạng monolithic architecture, sử dụng REST API để giao tiếp và Swagger để tài liệu hóa.
+The **Timekeeping System** is a monolithic backend service designed for precise timekeeping and human resources management. It processes raw attendance data, manages employee master data, synchronizes approval requests from external systems (like Base, Lark), and uses an automatic engine to calculate accurate timesheets based on defined shifts, late/early penalties, and various approval rules.
 
-Các tính năng chính:
-- Quản lý nhân viên (Master Data).
-- Tiếp nhận và xử lý dữ liệu chấm công thô (Attendance Raw).
-- Đồng bộ dữ liệu phê duyệt từ hệ thống ngoài (Approval Management).
-- Engine tính toán bảng công tự động.
+## ✨ Features
 
----
-
-## API Endpoints & Features
-
-### 1. Master Data (Employee Management)
-- **`GET /master-data/employees`**: Lấy danh sách nhân viên (phân trang, lọc theo `companyId`).
-- **`POST /master-data/employees`**: Tạo mới một nhân viên.
-- **`PATCH /master-data/employees/:id`**: Cập nhật thông tin nhân viên theo ID nội bộ.
-- **`POST /master-data/employees/bulk`**: Import hàng loạt nhân viên mới.
-- **`POST /master-data/employees/bulk-update`**: Cập nhật hàng loạt nhân viên theo `originId` hoặc `userId`.
-
-### 2. Approval Management (Import Dữ liệu Phê duyệt)
-- **`POST /approval-management`**: Tiếp nhận dữ liệu phê duyệt (đơn từ Base, Lark, v.v.).
-- **Hỗ trợ các loại đơn**: `LEAVE`, `REMOTE`, `OVERTIME`, `CORRECTION`, `MATERNITY`, `SWAP`.
-- **Đặc điểm**: Tự động phân loại, lưu lịch sử và kích hoạt tính toán lại bảng công cho các ngày liên quan.
+- **Master Data (Employee Management)**: Manage employee profiles, including bulk imports and updates.
+- **Attendance Processing Pipeline**: Ingest raw attendance data from devices or external sources and run calculations against work shifts locally.
+- **Approval Management System**: Receive and process complex external workflows for options like `LEAVE`, `REMOTE`, `OVERTIME`, `CORRECTION`, `MATERNITY`, and `SWAP`.
+- **Automated Calculations Engine**: In-process background processing determines real working hours, workday counts, late/early penalties, and valid attendance thresholds in real-time.
+- **Time Reporting**: Generate daily and monthly attendance timesheets.
 
 ---
 
-## Architecture & Data Flow
+## 📐 Architecture & Data Flow
 
-Hệ thống hoạt động theo mô hình xử lý trực tiếp (In-process processing) để đảm bảo tính đơn giản và dễ bảo trì.
+The system operates with an **In-process Architecture**, allowing for optimal responsiveness and easy maintainability without managing external message queues right out of the box.
 
-### 1. Attendance Processing Flow
-Dữ liệu chấm công thô được đẩy vào và xử lý như sau:
-1. **API Ingest**: Nhận dữ liệu chấm công từ thiết bị hoặc hệ thống bên ngoài.
-2. **Database Persistence**: Lưu vào bảng `attendance_raw`.
-3. **In-process Calculation**: Gọi trực tiếp `AttendanceEngine` để tính toán công cho nhân viên trong ngày đó.
-4. **Result Storage**: Lưu kết quả cuối cùng vào bảng `attendance_daily`.
+### 1. Attendance Processing
+1. **Ingestion**: Raw check-in/out records are submitted via APIs.
+2. **Persistence**: Records are saved to `attendance_raw`.
+3. **Calculation (In-process)**: The `AttendanceEngine` asynchronously processes data for the current day.
+4. **Storage**: Consolidated timesheet records are saved to `attendance_daily`.
 
-### 2. Leave / Approval Flow
-1. **API Ingest**: Tiếp nhận đơn phê duyệt.
-2. **Persistence**: Lưu thông tin đơn và các bảng chi tiết (`RequestDetailTimeOff`, etc.).
-3. **Trigger Recalculation**: Hệ thống xác định các ngày bị ảnh hưởng và gọi `AttendanceEngine` để cập nhật bảng công (`attendance_daily`). 
-   - *Lưu ý:* Việc tính toán được thực hiện dưới dạng asynchronous in-process (không đợi kết quả trả về API) để tối ưu thời gian phản hồi.
+### 2. Leave & Approval Flow
+1. **Ingestion**: Approvals from third-party systems are pushed into the API.
+2. **Persistence**: Approved requests (e.g., Leave, Overtime) are finalized and logged.
+3. **Recalculation**: The system determines the impacted dates and queues asynchronous, in-process jobs to re-run the `AttendanceEngine` over the respective timesheets, reflecting the changes immediately.
 
 ---
 
-## Development & Production
+## 🚀 Getting Started
 
-### Scripts
-- **`yarn start:dev`**: Chạy ứng dụng ở chế độ watch mode cho môi trường development.
-- **`yarn build`**: Biên dịch mã nguồn TypeScript sang JavaScript.
-- **`yarn start:prod`**: Chạy ứng dụng từ thư mục `dist`.
+### Prerequisites
 
-### Database Migration
-- **`yarn migration:generate`**: Tạo migration mới từ thay đổi Entity.
-- **`yarn migration:run`**: Thực thi các migration chưa chạy.
-- **`yarn migration:revert`**: Hoàn tác migration gần nhất.
+- Node.js (v18+)
+- Yarn
+- Docker & Docker Compose (for the database)
+
+### 1. Installation
+
+Clone the repository and install the dependencies:
+
+```bash
+yarn install
+```
+
+### 2. Environment Configuration
+
+Copy the example environment variables and adjust them to your setup:
+
+```bash
+cp .env.example .env
+```
+Ensure the `DATABASE_URL` or standard database parameters refer to your PostgreSQL host.
+
+### 3. Database & Docker setup
+
+To spin up development PostgreSQL instance easily via Docker Compose:
+
+```bash
+docker-compose up db -d
+```
+
+### 4. Running the Application
+
+To run the application in watch mode during development:
+
+```bash
+# Watch mode
+yarn start:dev
+```
+
+Other available commands:
+```bash
+# Production build
+yarn build
+
+# Run production
+yarn start:prod
+```
+
+### 5. Running Full System with Docker
+
+If you want to run both the Database and the API Application using Docker Compose::
+
+```bash
+docker-compose up -d --build
+```
+> This will boot `db`, `migration`, and `api-app` instances.
 
 ---
 
-## Summary
-- **API Server**: Express backend dựa trên NestJS.
-- **ORM**: TypeORM kết nối PostgreSQL.
-- **Documentation**: Swagger UI truy cập tại `/apis/docs`.
-- **Background Tasks**: Các tác vụ nặng (tính công) được xử lý bất đồng bộ trong cùng tiến trình (In-process Async).
+## 🗄️ Database Management (TypeORM)
+
+This project uses TypeORM to manage schemas. Execute the following commands to process schema syncs securely.
+
+```bash
+# Generate a new migration based on entity changes
+yarn migration:generate
+
+# Execute pending migrations
+yarn migration:run
+
+# Revert the most recent migration
+yarn migration:revert
+
+# Run Seeders
+yarn seed:run
+# OR (depending on local setup)
+yarn seed-v2:run
+```
+
+---
+
+## 📚 API Documentation
+
+The application exposes structured REST APIs. Once running, explore all endpoints via the Swagger Dashboard:
+
+👉 **[Swagger UI: http://localhost:3000/apis/docs](http://localhost:3000/apis/docs)**
+
+---
+
+## 🧪 Testing
+
+```bash
+# Unit tests
+yarn test
+
+# Test watch mode
+yarn test:watch
+
+# Test coverage
+yarn test:cov
+
+# E2E tests
+yarn test:e2e
+```
