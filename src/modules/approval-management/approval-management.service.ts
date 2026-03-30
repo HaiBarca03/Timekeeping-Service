@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { LEAVE_LABEL_TO_CODE, LEAVE_TYPES } from 'src/constants/leave-type.constants';
 import { DataSource } from 'typeorm';
 import { AttendanceRequest, RequestType } from './entities/attendance-request.entity';
 import { RequestDetailTimeOff } from './entities/request-detail-time-off.entity';
@@ -66,19 +67,24 @@ export class ApprovalManagementService {
         else if (approvalProcess === ExternalApprovalProcess.MATERNITY) type = RequestType.MATERNITY;
         else if (approvalProcess === ExternalApprovalProcess.SWAP) type = RequestType.SWAP;
 
-        if (typeDetailName) {
-          const typeDetailLower = typeDetailName.trim().toLowerCase();
-          if (['ANNUAL_LEAVE', 'UNPAID_LEAVE'].includes(typeDetailLower)) {
-            type = RequestType.LEAVE;
-          }
-        }
+        const typeDetailKey = fields.leave_type_detail?.trim();
 
         let leaveType: LeaveType | null = null;
-        if (type === RequestType.LEAVE && typeDetailName) {
+        const leaveTypeCode = typeDetailKey ? LEAVE_LABEL_TO_CODE[typeDetailKey] : null;
+
+        if (leaveTypeCode) {
+          // Nếu tìm thấy mã (ví dụ: 'TRAVEL_LEAVE') thì chắc chắn là loại LEAVE
+          type = RequestType.LEAVE;
+
+          // 2. Tìm trong Database theo Code (vừa chuẩn vừa nhanh)
           leaveType = await queryRunner.manager.findOne(LeaveType, {
-            where: { code: typeDetailName, companyId: companyId },
+            where: {
+              code: leaveTypeCode,
+              companyId: companyId
+            },
           });
         }
+
         console.log('leaveType', leaveType)
         // Logic kiểm tra đồng bộ: nếu synced_database === '1' (đã lưu trên Lark thì bỏ qua)
         if (fields.synced_database === '1' || String(fields.synced_database) === '1') {

@@ -19,6 +19,7 @@ import { LeavePolicy } from '../../modules/master-data/entities/leave-policy.ent
 import { LeavePolicyRule } from '../../modules/master-data/entities/leave-policy-rule.entity';
 
 import { Holiday } from 'src/modules/attendance/entities/holidays.entity';
+import { LEAVE_TYPE_LABELS, LEAVE_TYPES } from 'src/constants';
 
 export const initDataSeed = async (dataSource: DataSource) => {
   console.log('🧹 Bắt đầu seed dữ liệu mẫu đầy đủ các trường hợp...');
@@ -128,56 +129,21 @@ export const initDataSeed = async (dataSource: DataSource) => {
     { companyId, code: 'EXCEL_IMPORT', methodName: 'Import Excel' },
   ]); // LeaveType – các loại nghỉ phép phổ biến ở VN
 
-  const leaveTypes = await dataSource.getRepository(LeaveType).save([
-    {
+  // Sử dụng mapping để tự động tạo mảng dữ liệu seed từ Constants
+  const leaveTypeSeeds = Object.keys(LEAVE_TYPES).map((key) => {
+    const code = key as keyof typeof LEAVE_TYPES;
+
+    return {
       companyId,
-      code: 'ANNUAL_LEAVE',
-      leaveTypeName: 'Nghỉ phép năm',
-      isDeductLeave: true,
-    },
-    {
-      companyId,
-      code: 'UNPAID_LEAVE',
-      leaveTypeName: 'Nghỉ không lương',
-      isDeductLeave: false,
-    },
-    {
-      companyId,
-      code: 'SICK_LEAVE',
-      leaveTypeName: 'Nghỉ ốm',
-      isDeductLeave: false,
-    },
-    {
-      companyId,
-      code: 'MARRIAGE_SELF',
-      leaveTypeName: 'Kết hôn bản thân',
-      isDeductLeave: false,
-    },
-    {
-      companyId,
-      code: 'MARRIAGE_CHILD',
-      leaveTypeName: 'Con kết hôn',
-      isDeductLeave: false,
-    },
-    {
-      companyId,
-      code: 'FUNERAL_LEAVE',
-      leaveTypeName: 'Nghỉ hiếu',
-      isDeductLeave: false,
-    },
-    {
-      companyId,
-      code: 'PATERNITY_LEAVE',
-      leaveTypeName: 'Nghỉ sinh con (bố)',
-      isDeductLeave: false,
-    },
-    {
-      companyId,
-      code: 'MATERNITY_LEAVE',
-      leaveTypeName: 'Nghỉ thai sản',
-      isDeductLeave: false,
-    },
-  ]);
+      code: LEAVE_TYPES[code],
+      leaveTypeName: LEAVE_TYPE_LABELS[code],
+      // Tự động set isDeductLeave: true chỉ cho phép năm, còn lại là false
+      isDeductLeave: code === 'ANNUAL_LEAVE',
+    };
+  });
+
+  // Thực hiện save vào Database
+  const leaveTypes = await dataSource.getRepository(LeaveType).save(leaveTypeSeeds);
 
   const leavePolicy = await dataSource.getRepository(LeavePolicy).save({
     companyId,
@@ -197,7 +163,7 @@ export const initDataSeed = async (dataSource: DataSource) => {
             ? 3
             : lt.code === 'MARRIAGE_CHILD'
               ? 1
-              : lt.code === 'FUNERAL_LEAVE'
+              : lt.code === 'BEREAVEMENT_LEAVE'
                 ? 3
                 : null,
       isDeductLeave: lt.isDeductLeave,

@@ -22,10 +22,13 @@ export class AttendanceCronService {
   ) { }
 
   // Chạy mỗi 15 phút một lần từ 1h đêm đến 4h sáng (để hoàn thành trước 4h30)
-  @Cron('*/15 1-3 * * *', {
-    timeZone: 'Asia/Ho_Chi_Minh',
-  })
-  @Cron('0,15 4 * * *', {
+  // @Cron('*/15 1-3 * * *', {
+  //   timeZone: 'Asia/Ho_Chi_Minh',
+  // })
+  // @Cron('0,15 4 * * *', {
+  //   timeZone: 'Asia/Ho_Chi_Minh',
+  // })
+  @Cron('* * * * *', {
     timeZone: 'Asia/Ho_Chi_Minh',
   })
   async handlePunchProcessing() {
