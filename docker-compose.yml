@@ -1,45 +1,42 @@
 version: '3.8'
 
 services:
-  db:
-    image: postgres:15-alpine
-    container_name: timekeeping-db
-    restart: always
-    environment:
-      POSTGRES_DB: timekeeping-system
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-
   migration:
-    build: .
+    build:
+      context: .
+      target: builder
     container_name: timekeeping-migration
+    network_mode: host
     env_file: .env
     environment:
-      - DATABASE_HOST=db # Trỏ vào service name 'db'
+      - DATABASE_HOST=${DATABASE_HOST}
+      - DATABASE_PORT=${DATABASE_PORT}
+      - DATABASE_USERNAME=${DATABASE_USERNAME}
+      - DATABASE_PASSWORD=${DATABASE_PASSWORD}
+      - DATABASE_NAME=${DATABASE_NAME}
+      - DATABASE_SYNCHRONIZE=${DATABASE_SYNCHRONIZE}
+      - DATABASE_SSL_ENABLED=${DATABASE_SSL_ENABLED}
     command: yarn migration:run
-    depends_on:
-      - db
 
   api-app:
-    build: .
+    build:
+      context: .
+      target: runner
     container_name: timekeeping-api
     restart: always
+    network_mode: host
     env_file: .env
     environment:
-      - NODE_ENV=production
-      - DATABASE_HOST=db
-    ports:
-      - "3000:3000"
+      - NODE_ENV=${NODE_ENV}
+      - DATABASE_HOST=${DATABASE_HOST}
+      - DATABASE_PORT=${DATABASE_PORT}
+      - DATABASE_USERNAME=${DATABASE_USERNAME}
+      - DATABASE_PASSWORD=${DATABASE_PASSWORD}
+      - DATABASE_NAME=${DATABASE_NAME}
+      - DATABASE_SYNCHRONIZE=${DATABASE_SYNCHRONIZE}
+      - DATABASE_SSL_ENABLED=${DATABASE_SSL_ENABLED}
+      - TZ=${TZ}
     command: node dist/main
     depends_on:
-      db:
-        condition: service_healthy
       migration:
         condition: service_completed_successfully
-
-volumes:
-  postgres_data:
