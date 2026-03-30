@@ -11,6 +11,7 @@ export class Holiday extends BaseEntity {
 
   @Column({
     type: 'varchar',
+    length: 50, // Giới hạn độ dài chuỗi cho an toàn
     default: HOLIDAY_TYPES.PUBLIC
   })
   holiday_type: string;

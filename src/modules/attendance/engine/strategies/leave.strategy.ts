@@ -11,6 +11,7 @@ import {
 import { LeavePolicyRule } from '../../../master-data/entities/leave-policy-rule.entity';
 import { LeaveType } from '../../../master-data/entities/leave-type.entity';
 import { RequestStatus } from 'src/constants/approval-status.constants';
+import { EmployeeTypeCode } from 'src/constants/employee-type.constants';
 
 @Injectable()
 export class LeaveStrategy {
@@ -33,7 +34,7 @@ export class LeaveStrategy {
     const { employee, date, shiftContext } = context;
     const dateStr = date.toISOString().split('T')[0];
 
-    const isOfficial = employee.employeeType?.code === 'OFFICIAL';
+    const isOfficial = employee.employeeType?.code === EmployeeTypeCode.OFFICIAL;
 
     this.logger.debug(`[LeaveStrategy] Checking for Emp ${employee.id} on ${dateStr}`);
 

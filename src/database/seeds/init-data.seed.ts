@@ -19,7 +19,7 @@ import { LeavePolicy } from '../../modules/master-data/entities/leave-policy.ent
 import { LeavePolicyRule } from '../../modules/master-data/entities/leave-policy-rule.entity';
 
 import { Holiday } from 'src/modules/attendance/entities/holidays.entity';
-import { LEAVE_TYPE_LABELS, LEAVE_TYPES, HOLIDAY_TYPES } from 'src/constants';
+import { LEAVE_TYPE_LABELS, LEAVE_TYPES, HOLIDAY_TYPES, EmployeeTypeCode, EmploymentStatusCode } from 'src/constants';
 
 export const initDataSeed = async (dataSource: DataSource) => {
   console.log('🧹 Bắt đầu seed dữ liệu mẫu đầy đủ các trường hợp...');
@@ -103,21 +103,21 @@ export const initDataSeed = async (dataSource: DataSource) => {
   ]); // EmployeeType – các loại hình lao động
 
   const empTypes = await dataSource.getRepository(EmployeeType).save([
-    { companyId, code: 'OFFICIAL', typeName: 'Chính thức' },
-    { companyId, code: 'PROBATION', typeName: 'Thử việc' },
-    { companyId, code: 'SEASONAL', typeName: 'Thời vụ' },
-    { companyId, code: 'COLLABORATOR', typeName: 'Cộng tác viên' },
-    { companyId, code: 'PART_TIME', typeName: 'Bán thời gian' },
-    { companyId, code: 'SHIFT_WORKER', typeName: 'Ca kíp' },
+    { companyId, code: EmployeeTypeCode.OFFICIAL, typeName: 'Chính thức' },
+    { companyId, code: EmployeeTypeCode.PROBATION, typeName: 'Thử việc' },
+    { companyId, code: EmployeeTypeCode.SEASONAL, typeName: 'Thời vụ' },
+    { companyId, code: EmployeeTypeCode.COLLABORATOR, typeName: 'Cộng tác viên' },
+    { companyId, code: EmployeeTypeCode.PART_TIME, typeName: 'Bán thời gian' },
+    { companyId, code: EmployeeTypeCode.SHIFT_WORKER, typeName: 'Ca kíp' },
   ]); // EmployeeStatus – các trạng thái phổ biến
 
   const empStatuses = await dataSource.getRepository(EmployeeStatus).save([
-    { companyId, code: 'WORKING', statusName: 'Đang làm việc' },
-    { companyId, code: 'PROBATION_END', statusName: 'Hết thử việc' },
-    { companyId, code: 'RESIGNED', statusName: 'Đã nghỉ việc' },
-    { companyId, code: 'TERMINATED', statusName: 'Sa thải' },
-    { companyId, code: 'MATERNITY_LEAVE', statusName: 'Nghỉ thai sản' },
-    { companyId, code: 'SUSPENDED', statusName: 'Tạm đình chỉ' },
+    { companyId, code: EmploymentStatusCode.WORKING, statusName: 'Đang làm việc' },
+    { companyId, code: EmploymentStatusCode.PROBATION_END, statusName: 'Hết thử việc' },
+    { companyId, code: EmploymentStatusCode.RESIGNED, statusName: 'Đã nghỉ việc' },
+    { companyId, code: EmploymentStatusCode.TERMINATED, statusName: 'Sa thải' },
+    { companyId, code: EmploymentStatusCode.MATERNITY_LEAVE, statusName: 'Nghỉ thai sản' },
+    { companyId, code: EmploymentStatusCode.SUSPENDED, statusName: 'Tạm đình chỉ' },
   ]); // AttendanceMethod – các phương thức chấm công
 
   const attMethods = await dataSource.getRepository(AttendanceMethod).save([
@@ -902,7 +902,7 @@ export const initDataSeed = async (dataSource: DataSource) => {
     const joinedAt = faker.date.past({ years: 4 });
     const selectedGroup = savedGroups.find((g) => g.code === tc.groupCode) || empGroup;
 
-    let empType = empTypes.find((t) => t.code === 'OFFICIAL')!;
+    let empType = empTypes.find((t) => t.code === EmployeeTypeCode.OFFICIAL)!;
     if (tc.isPartTime) empType = empTypes.find((t) => t.code === 'PART_TIME')!;
     if (tc.isStore) empType = empTypes.find((t) => t.code === 'SHIFT_WORKER')!;
 
@@ -923,7 +923,7 @@ export const initDataSeed = async (dataSource: DataSource) => {
       attendanceGroup: selectedGroup,
       jobLevel: randomFromArray(jobLevels),
       employeeType: empType,
-      employeeStatus: empStatuses.find((s) => s.code === 'WORKING') || empStatuses[0],
+      employeeStatus: empStatuses.find((s) => s.code === EmploymentStatusCode.WORKING) || empStatuses[0],
       attendanceMethod: attMethods.find(m => m.code === 'TIME_MACHINE') || attMethods[0],
       is_saturday_off: !!tc.isSaturdayOff,
       is_angel: false,

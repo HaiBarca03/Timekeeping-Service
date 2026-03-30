@@ -1,5 +1,6 @@
 export * from './attendance-adjustment.constants';
 export * from './attendance-group.constants';
+export * from './attendance-record.constants';
 export * from './approval-status.constants';
 export * from './business.code';
 export * from './company.constants';
