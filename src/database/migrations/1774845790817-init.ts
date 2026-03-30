@@ -1,7 +1,7 @@
 import { MigrationInterface, QueryRunner } from "typeorm";
 
-export class Init1774839590099 implements MigrationInterface {
-    name = 'Init1774839590099'
+export class Init1774845790817 implements MigrationInterface {
+    name = 'Init1774845790817'
 
     public async up(queryRunner: QueryRunner): Promise<void> {
         await queryRunner.query(`CREATE TABLE "attendance_month_settings" ("id" BIGSERIAL NOT NULL, "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), "deleted_at" TIMESTAMP, "company_id" bigint NOT NULL, "month" integer NOT NULL, "year" integer NOT NULL, "standard_workdays" numeric(6,2) NOT NULL, "closing_date" date, CONSTRAINT "PK_514c83b51ccc3772faa205da219" PRIMARY KEY ("id"))`);
@@ -12,9 +12,9 @@ export class Init1774839590099 implements MigrationInterface {
         await queryRunner.query(`CREATE UNIQUE INDEX "IDX_50ed9c66cb1fc7cfd7dff69f4e" ON "shifts" ("origin_id") `);
         await queryRunner.query(`CREATE UNIQUE INDEX "IDX_a29e2a5f47594e13dec61b1deb" ON "shifts" ("company_id", "code") `);
         await queryRunner.query(`CREATE UNIQUE INDEX "IDX_555c88b66687c3694b196c5b02" ON "shifts" ("company_id", "shift_name") `);
-        await queryRunner.query(`CREATE TABLE "attendance_groups" ("id" BIGSERIAL NOT NULL, "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), "deleted_at" TIMESTAMP, "company_id" bigint NOT NULL, "origin_id" character varying, "code" character varying(50) NOT NULL, "group_name" character varying NOT NULL, "group_type_code" character varying(50), "status" character varying(20) NOT NULL DEFAULT 'ACTIVE', "default_shift_id" bigint, CONSTRAINT "UQ_11c5c66c4cdc27eaa548d519b30" UNIQUE ("origin_id"), CONSTRAINT "PK_7240eb99fe29f6093e1cc6550e2" PRIMARY KEY ("id"))`);
+        await queryRunner.query(`CREATE TABLE "attendance_groups" ("id" BIGSERIAL NOT NULL, "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), "deleted_at" TIMESTAMP, "company_id" bigint NOT NULL, "origin_id" character varying, "code" character varying(50) NOT NULL, "group_name" character varying NOT NULL, "status" character varying(20) NOT NULL DEFAULT 'ACTIVE', "default_shift_id" bigint, CONSTRAINT "UQ_11c5c66c4cdc27eaa548d519b30" UNIQUE ("origin_id"), CONSTRAINT "PK_7240eb99fe29f6093e1cc6550e2" PRIMARY KEY ("id"))`);
         await queryRunner.query(`CREATE UNIQUE INDEX "IDX_11c5c66c4cdc27eaa548d519b3" ON "attendance_groups" ("origin_id") `);
-        await queryRunner.query(`CREATE UNIQUE INDEX "IDX_496072134ffffe2a4bcc6fb1d9" ON "attendance_groups" ("company_id") `);
+        await queryRunner.query(`CREATE UNIQUE INDEX "IDX_e61dd1fab443e84f7576c7f2fa" ON "attendance_groups" ("company_id", "code") `);
         await queryRunner.query(`CREATE UNIQUE INDEX "IDX_912027997643770c7363e28df9" ON "attendance_groups" ("company_id", "group_name") `);
         await queryRunner.query(`CREATE TABLE "job_levels" ("id" BIGSERIAL NOT NULL, "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), "deleted_at" TIMESTAMP, "company_id" bigint NOT NULL, "code" character varying(50) NOT NULL, "level_name" character varying NOT NULL, "status" character varying(20) NOT NULL DEFAULT 'ACTIVE', CONSTRAINT "PK_86a4e88cf87968ed4bfc349eaa3" PRIMARY KEY ("id"))`);
         await queryRunner.query(`CREATE UNIQUE INDEX "IDX_ff4edf9c32127346169a68fcd9" ON "job_levels" ("company_id", "code") `);
@@ -66,7 +66,7 @@ export class Init1774839590099 implements MigrationInterface {
         await queryRunner.query(`CREATE TABLE "shift_assignments" ("id" BIGSERIAL NOT NULL, "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), "deleted_at" TIMESTAMP, "company_id" bigint NOT NULL, "employee_id" bigint NOT NULL, "store_id" bigint NOT NULL, "origin_id" character varying, "date" date NOT NULL, "shift_id" bigint NOT NULL, "on_time" TIMESTAMP WITH TIME ZONE NOT NULL, "off_time" TIMESTAMP WITH TIME ZONE NOT NULL, "is_active" boolean NOT NULL DEFAULT true, CONSTRAINT "UQ_45a70b711b1c1652bf12e1f59e1" UNIQUE ("origin_id"), CONSTRAINT "PK_7a78d24f38deedd9fe0ea19685c" PRIMARY KEY ("id"))`);
         await queryRunner.query(`CREATE UNIQUE INDEX "IDX_45a70b711b1c1652bf12e1f59e" ON "shift_assignments" ("origin_id") `);
         await queryRunner.query(`CREATE INDEX "IDX_b5e8bfe8e2ca589b742dff3a0f" ON "shift_assignments" ("employee_id", "date") `);
-        await queryRunner.query(`CREATE TABLE "holidays" ("id" BIGSERIAL NOT NULL, "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), "deleted_at" TIMESTAMP, "holiday_name" character varying NOT NULL, "holiday_date" date NOT NULL, "holiday_type" character varying NOT NULL DEFAULT 'Nghỉ lễ', "workday_value" numeric(3,2) NOT NULL DEFAULT '1', "is_active" boolean NOT NULL DEFAULT true, "company_id" bigint, CONSTRAINT "PK_3646bdd4c3817d954d830881dfe" PRIMARY KEY ("id"))`);
+        await queryRunner.query(`CREATE TABLE "holidays" ("id" BIGSERIAL NOT NULL, "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), "deleted_at" TIMESTAMP, "holiday_name" character varying NOT NULL, "holiday_date" date NOT NULL, "holiday_type" character varying(50) NOT NULL DEFAULT 'PUBLIC', "workday_value" numeric(3,2) NOT NULL DEFAULT '1', "is_active" boolean NOT NULL DEFAULT true, "company_id" bigint, CONSTRAINT "PK_3646bdd4c3817d954d830881dfe" PRIMARY KEY ("id"))`);
         await queryRunner.query(`CREATE TABLE "backdate_overrides" ("id" BIGSERIAL NOT NULL, "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), "deleted_at" TIMESTAMP, "company_id" bigint NOT NULL, "effective_from" date NOT NULL, "effective_to" date, "entity_type" character varying(50) NOT NULL, "entity_id" character varying(100) NOT NULL, "source_id" character varying(100), "override_values" jsonb NOT NULL, "reason" text, "is_active" boolean NOT NULL DEFAULT true, "recalc_status" character varying NOT NULL DEFAULT 'PENDING', CONSTRAINT "PK_767f5cef1d7e0fb9a0ca40e9a35" PRIMARY KEY ("id"))`);
         await queryRunner.query(`CREATE INDEX "IDX_c5ecd73306910920ce52faef01" ON "backdate_overrides" ("source_id") `);
         await queryRunner.query(`CREATE INDEX "IDX_15f20cce35abe382898defa4a7" ON "backdate_overrides" ("entity_type", "entity_id") `);
@@ -232,7 +232,7 @@ export class Init1774839590099 implements MigrationInterface {
         await queryRunner.query(`DROP INDEX "public"."IDX_ff4edf9c32127346169a68fcd9"`);
         await queryRunner.query(`DROP TABLE "job_levels"`);
         await queryRunner.query(`DROP INDEX "public"."IDX_912027997643770c7363e28df9"`);
-        await queryRunner.query(`DROP INDEX "public"."IDX_496072134ffffe2a4bcc6fb1d9"`);
+        await queryRunner.query(`DROP INDEX "public"."IDX_e61dd1fab443e84f7576c7f2fa"`);
         await queryRunner.query(`DROP INDEX "public"."IDX_11c5c66c4cdc27eaa548d519b3"`);
         await queryRunner.query(`DROP TABLE "attendance_groups"`);
         await queryRunner.query(`DROP INDEX "public"."IDX_555c88b66687c3694b196c5b02"`);
