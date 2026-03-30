@@ -1,4 +1,3 @@
-//Công ty
 export const COMPANIES = {
   STAAAR: 'Staaar',
   HSH: 'HSH',

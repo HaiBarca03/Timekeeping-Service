@@ -1,45 +1,28 @@
 version: '3.8'
 
 services:
-  db:
-    image: postgres:15-alpine
-    container_name: timekeeping-db
-    restart: always
-    environment:
-      POSTGRES_DB: timekeeping-system
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-
   migration:
-    build: .
+    build:
+      context: .
+      target: builder
     container_name: timekeeping-migration
-    env_file: .env
-    environment:
-      - DATABASE_HOST=db # Trỏ vào service name 'db'
+    env_file: 
+      - .env
     command: yarn migration:run
-    depends_on:
-      - db
 
   api-app:
-    build: .
+    build:
+      context: .
+      target: runner
     container_name: timekeeping-api
     restart: always
-    env_file: .env
+    env_file: 
+      - .env
     environment:
       - NODE_ENV=production
-      - DATABASE_HOST=db
     ports:
       - "3000:3000"
     command: node dist/main
     depends_on:
-      db:
-        condition: service_healthy
       migration:
         condition: service_completed_successfully
-
-volumes:
-  postgres_data:

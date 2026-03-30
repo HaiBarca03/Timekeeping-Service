@@ -100,12 +100,21 @@ yarn start:prod
 
 ### 5. Running Full System with Docker
 
-If you want to run both the Database and the API Application using Docker Compose::
+To deploy the entire system (Database + Migrations + API) seamlessly with a single command:
 
 ```bash
 docker-compose up -d --build
 ```
-> This will boot `db`, `migration`, and `api-app` instances.
+
+**What happens next?**
+1. 🐘 **db**: PostgreSQL spins up and runs a healthcheck.
+2. 🔄 **migration**: Waits for `db` to be healthy, then automatically executes `yarn migration:run` to sync your schemas.
+3. 🚀 **api-app**: Waits for both DB to be healthy and `migration` to complete successfully, then mounts the standalone production build.
+
+Check logs to ensure everything is running:
+```bash
+docker-compose logs -f
+```
 
 ---
 

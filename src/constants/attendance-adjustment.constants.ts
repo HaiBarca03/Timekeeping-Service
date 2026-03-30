@@ -1,4 +1,3 @@
-//Loại điều chỉnh công ca
 export enum AdjustmentReasonCode {
   BROKEN_MACHINE = 'BROKEN_MACHINE',
   POWER_OUTAGE = 'POWER_OUTAGE',
