@@ -142,7 +142,7 @@ yarn seed:run
 
 The application exposes structured REST APIs. Once running, explore all endpoints via the Swagger Dashboard:
 
-👉 **[Swagger UI: http://localhost:3000/apis/docs](http://localhost:3000/apis/docs)**
+👉 **[Swagger UI: {url}/apis/docs]({url}/apis/docs)**
 
 ---
 
