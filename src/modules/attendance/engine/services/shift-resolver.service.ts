@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ATTENDANCE_GROUPS } from 'src/constants/attendance-group.constants';
+import { HOLIDAY_TYPES } from 'src/constants/holiday-type.constants';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Between, Raw, Repository } from 'typeorm';
 import { Shift } from 'src/modules/master-data/entities/shift.entity';
@@ -51,8 +52,8 @@ export class ShiftResolverService {
       } else {
         // KIỂM TRA QUYỀN HƯỞNG LỄ (PUBLIC cho tất cả, ANGEL chỉ cho Angel)
         const isEnjoyable =
-          holiday.holiday_type === 'PUBLIC' ||
-          (holiday.holiday_type === 'ANGEL' && employee.is_angel);
+          holiday.holiday_type === HOLIDAY_TYPES.PUBLIC ||
+          (holiday.holiday_type === HOLIDAY_TYPES.ANGEL && employee.is_angel);
 
         if (isEnjoyable) {
           // CASE 1: TRÙNG NGÀY NGHỈ (KHÔNG GÁN CA)

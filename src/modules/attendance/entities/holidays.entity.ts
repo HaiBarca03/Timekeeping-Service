@@ -1,6 +1,6 @@
 import { BaseEntity } from "../../../database/entities/base.entity";
 import { Column, Entity } from "typeorm";
-
+import { HOLIDAY_TYPES } from "../../../constants/holiday-type.constants";
 @Entity('holidays')
 export class Holiday extends BaseEntity {
   @Column({ type: 'varchar' })
@@ -10,14 +10,13 @@ export class Holiday extends BaseEntity {
   holiday_date: Date;
 
   @Column({
-    type: 'enum',
-    enum: ['PUBLIC', 'SPECIAL', 'ANGEL'],
-    default: 'PUBLIC'
+    type: 'varchar',
+    default: HOLIDAY_TYPES.PUBLIC
   })
-  holiday_type: string; 
+  holiday_type: string;
 
   @Column({ type: 'decimal', precision: 3, scale: 2, default: 1.0 })
-  workday_value: number; 
+  workday_value: number;
 
   @Column({ default: true })
   is_active: boolean;

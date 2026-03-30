@@ -19,7 +19,7 @@ import { LeavePolicy } from '../../modules/master-data/entities/leave-policy.ent
 import { LeavePolicyRule } from '../../modules/master-data/entities/leave-policy-rule.entity';
 
 import { Holiday } from 'src/modules/attendance/entities/holidays.entity';
-import { LEAVE_TYPE_LABELS, LEAVE_TYPES } from 'src/constants';
+import { LEAVE_TYPE_LABELS, LEAVE_TYPES, HOLIDAY_TYPES } from 'src/constants';
 
 export const initDataSeed = async (dataSource: DataSource) => {
   console.log('🧹 Bắt đầu seed dữ liệu mẫu đầy đủ các trường hợp...');
@@ -765,10 +765,10 @@ export const initDataSeed = async (dataSource: DataSource) => {
   };
 
   const holidaysData = [
-    { name: 'Tết Dương lịch', date: '01/01/2026', type: 'PUBLIC', value: 1.0 },
-    { name: 'Tết Nguyên đán', date: '17/02/2026', type: 'PUBLIC', value: 1.0 },
-    { name: 'NKT VN', date: '18/04/2026', type: 'ANGEL', value: 1.0 }, // Map "Nghỉ lễ Angel" -> ANGEL
-    { name: 'Du lịch', date: '20/03/2026', type: 'SPECIAL', value: 1.0 }, // Map "Nghỉ đặc biệt" -> SPECIAL
+    { name: 'Tết Dương lịch', date: '01/01/2026', type: HOLIDAY_TYPES.PUBLIC, value: 1.0 },
+    { name: 'Tết Nguyên đán', date: '17/02/2026', type: HOLIDAY_TYPES.PUBLIC, value: 1.0 },
+    { name: 'NKT VN', date: '18/04/2026', type: HOLIDAY_TYPES.ANGEL, value: 1.0 },
+    { name: 'Du lịch', date: '20/03/2026', type: HOLIDAY_TYPES.SPECIAL, value: 1.0 },
   ];
 
   for (const h of holidaysData) {
