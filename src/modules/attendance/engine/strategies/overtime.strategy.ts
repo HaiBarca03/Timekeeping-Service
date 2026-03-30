@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { LEAVE_TYPES } from 'src/constants/leave-type.constants';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CalculationContext } from '../dto/calculation-context.dto';
@@ -6,7 +7,7 @@ import {
   AttendanceRequest,
   RequestType,
 } from '../../../approval-management/entities/attendance-request.entity';
-import { RequestStatus } from 'src/constants/req-status.contants';
+import { RequestStatus } from 'src/constants/approval-status.constants';
 
 @Injectable()
 export class OvertimeStrategy {
@@ -66,7 +67,7 @@ export class OvertimeStrategy {
 
     context.overtimeMinutes = hours * 60;
 
-    if (otRequest.convertType === 'Nghỉ bù') {
+    if (otRequest.convertType === LEAVE_TYPES.COMPENSATORY_LEAVE) {
       context.overtimeCompensatoryMinutes = hours * 60;
     }
 

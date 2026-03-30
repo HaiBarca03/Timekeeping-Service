@@ -1,4 +1,5 @@
 import { ShiftRestRule } from 'src/modules/master-data/entities/shift-rest-rule.entity';
+import { ATTENDANCE_GROUPS } from 'src/constants/attendance-group.constants';
 import { Shift } from 'src/modules/master-data/entities/shift.entity';
 import { ShiftAssignment } from '../../entities/shift-assignment.entity';
 
@@ -71,7 +72,7 @@ export class ShiftContext {
     let baseHours = this.totalStandardHours;
 
     // 2. Nếu là thai sản (is_maternity_shift = 1), giờ chuẩn giảm 1 tiếng
-    if (isMaternityShift && groupCode === 'STORE_GROUP') {
+    if (isMaternityShift && groupCode === ATTENDANCE_GROUPS.OFFICE_GROUP_1 || groupCode === ATTENDANCE_GROUPS.OFFICE_GROUP_2) {
       return baseHours > 1 ? baseHours - 1 : 0;
     }
 

@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { ATTENDANCE_GROUPS } from 'src/constants/attendance-group.constants';
 import { CalculationContext } from '../dto/calculation-context.dto';
 import { differenceInMinutes, isBefore, isAfter, max, min } from 'date-fns';
 
@@ -9,7 +10,7 @@ export class BreakTimeStrategy {
   process(context: CalculationContext): void {
     const groupCode = context.employee.attendanceGroup?.code;
 
-    if (groupCode === 'STORE_GROUP' || groupCode === 'FACTORY_GROUP') {
+    if (groupCode === ATTENDANCE_GROUPS.STORE_GROUP_1 || groupCode === ATTENDANCE_GROUPS.STORE_GROUP_2 || groupCode === ATTENDANCE_GROUPS.FACTORY_GROUP) {
       this.logger.debug(`Skip BreakTimeStrategy for group: ${groupCode}`);
       return;
     }

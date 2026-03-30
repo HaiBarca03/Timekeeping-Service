@@ -29,7 +29,12 @@ export class AllExceptionsFilter implements ExceptionFilter {
         ? exception.getStatus()
         : HttpStatus.INTERNAL_SERVER_ERROR;
 
-    let message: any = 'Internal server error';
+    let message: any =
+      exception instanceof Error
+        ? exception.message
+        : typeof exception === 'string'
+          ? exception
+          : 'Internal server error';
     let businessCode = -1;
     let validationErrors: any[] | null = null;
 

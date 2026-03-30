@@ -1,4 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { ATTENDANCE_GROUPS } from 'src/constants/attendance-group.constants';
+import { LEAVE_TYPES } from 'src/constants/leave-type.constants';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CalculationContext } from '../dto/calculation-context.dto';
@@ -8,7 +10,8 @@ import {
 } from '../../../approval-management/entities/attendance-request.entity';
 import { LeavePolicyRule } from '../../../master-data/entities/leave-policy-rule.entity';
 import { LeaveType } from '../../../master-data/entities/leave-type.entity';
-import { RequestStatus } from 'src/constants/req-status.contants';
+import { RequestStatus } from 'src/constants/approval-status.constants';
+import { EmployeeTypeCode } from 'src/constants/employee-type.constants';
 
 @Injectable()
 export class LeaveStrategy {
@@ -31,7 +34,7 @@ export class LeaveStrategy {
     const { employee, date, shiftContext } = context;
     const dateStr = date.toISOString().split('T')[0];
 
-    const isOfficial = employee.employeeType?.code === 'OFFICIAL';
+    const isOfficial = employee.employeeType?.code === EmployeeTypeCode.OFFICIAL;
 
     this.logger.debug(`[LeaveStrategy] Checking for Emp ${employee.id} on ${dateStr}`);
 
@@ -70,7 +73,7 @@ export class LeaveStrategy {
         ) + 1;
 
       // --- RULE: ĐỐI TƯỢNG (SRS: Nhân viên chính thức của 4 công ty) ---
-      if (!isOfficial && lt.code !== 'UNPAID_LEAVE') {
+      if (!isOfficial && lt.code !== LEAVE_TYPES.UNPAID_LEAVE) {
         this.logger.warn(
           `NV ${employee.id} không phải chính thức, loại bỏ nghỉ có lương/chế độ.`,
         );
@@ -78,7 +81,7 @@ export class LeaveStrategy {
       }
 
       // --- RULE: THAI SẢN (SRS: Nộp đơn tối thiểu 1 tháng trước ngày nghỉ) ---
-      if (lt.code === 'MATERNITY' || lt.code === 'THAI_SAN') {
+      if (lt.code === LEAVE_TYPES.MATERNITY_LEAVE) {
         const appliedDate = new Date(req.applied_date);
         const createdAt = new Date(req['createdAt']); // BaseEntity cần có createdAt
 
@@ -96,8 +99,8 @@ export class LeaveStrategy {
       let currentRequestHours = detail?.hours || 0;
 
       const policyLimits: Record<string, number> = {
-        MARRIAGE_SELF: 3, // Bản thân kết hôn
-        MARRIAGE_CHILD: 1, // Con cái kết hôn
+        [LEAVE_TYPES.MARRIAGE_SELF]: 3, // Bản thân kết hôn
+        [LEAVE_TYPES.MARRIAGE_CHILD]: 1, // Con cái kết hôn
         BEREAVEMENT: 3, // Nghỉ hiếu
         // Các loại như Vợ sinh, Thai sản, Du lịch: Không chặn tối đa theo SRS
       };
@@ -137,7 +140,7 @@ export class LeaveStrategy {
     const standardHours = shiftContext?.getStandardWorkHours() || 8;
 
     if (dayTotalLeaveHours > 0 && mainLeaveType) {
-      if (employee.attendanceGroup?.code === 'STORE_GROUP') {
+      if (employee.attendanceGroup?.code === ATTENDANCE_GROUPS.STORE_GROUP_1 || employee.attendanceGroup?.code === ATTENDANCE_GROUPS.STORE_GROUP_2) {
         /**
          * SRS: Đối với Nhân viên Khối Cửa hàng: Nghỉ tròn ngày
          */

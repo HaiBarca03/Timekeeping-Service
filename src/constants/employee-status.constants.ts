@@ -1,8 +1,8 @@
 export enum EmploymentStatusCode {
-  INFO_PENDING = 'INFO_PENDING',       // Cung cấp thông tin
-  WAITING_CONFIRM = 'WAITING_CONFIRM', // Chờ xác nhận
-  WAITING_ONBOARD = 'WAITING_ONBOARD', // Chờ onboard
-  ONBOARDED = 'ONBOARDED',             // Đã onboard (Đang làm việc)
-  CANCELLED = 'CANCELLED',             // Hủy onboard
+  WORKING = 'WORKING',                 // Đang làm việc
+  PROBATION_END = 'PROBATION_END',     // Hết thử việc
   RESIGNED = 'RESIGNED',               // Đã nghỉ việc
+  TERMINATED = 'TERMINATED',           // Sa thải
+  MATERNITY_LEAVE = 'MATERNITY_LEAVE', // Nghỉ thai sản
+  SUSPENDED = 'SUSPENDED',             // Tạm đình chỉ
 }

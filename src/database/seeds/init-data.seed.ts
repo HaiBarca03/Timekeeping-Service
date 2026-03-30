@@ -19,6 +19,7 @@ import { LeavePolicy } from '../../modules/master-data/entities/leave-policy.ent
 import { LeavePolicyRule } from '../../modules/master-data/entities/leave-policy-rule.entity';
 
 import { Holiday } from 'src/modules/attendance/entities/holidays.entity';
+import { LEAVE_TYPE_LABELS, LEAVE_TYPES, HOLIDAY_TYPES, EmployeeTypeCode, EmploymentStatusCode } from 'src/constants';
 
 export const initDataSeed = async (dataSource: DataSource) => {
   console.log('🧹 Bắt đầu seed dữ liệu mẫu đầy đủ các trường hợp...');
@@ -102,21 +103,21 @@ export const initDataSeed = async (dataSource: DataSource) => {
   ]); // EmployeeType – các loại hình lao động
 
   const empTypes = await dataSource.getRepository(EmployeeType).save([
-    { companyId, code: 'OFFICIAL', typeName: 'Chính thức' },
-    { companyId, code: 'PROBATION', typeName: 'Thử việc' },
-    { companyId, code: 'SEASONAL', typeName: 'Thời vụ' },
-    { companyId, code: 'COLLABORATOR', typeName: 'Cộng tác viên' },
-    { companyId, code: 'PART_TIME', typeName: 'Bán thời gian' },
-    { companyId, code: 'SHIFT_WORKER', typeName: 'Ca kíp' },
+    { companyId, code: EmployeeTypeCode.OFFICIAL, typeName: 'Chính thức' },
+    { companyId, code: EmployeeTypeCode.PROBATION, typeName: 'Thử việc' },
+    { companyId, code: EmployeeTypeCode.SEASONAL, typeName: 'Thời vụ' },
+    { companyId, code: EmployeeTypeCode.COLLABORATOR, typeName: 'Cộng tác viên' },
+    { companyId, code: EmployeeTypeCode.PART_TIME, typeName: 'Bán thời gian' },
+    { companyId, code: EmployeeTypeCode.SHIFT_WORKER, typeName: 'Ca kíp' },
   ]); // EmployeeStatus – các trạng thái phổ biến
 
   const empStatuses = await dataSource.getRepository(EmployeeStatus).save([
-    { companyId, code: 'WORKING', statusName: 'Đang làm việc' },
-    { companyId, code: 'PROBATION_END', statusName: 'Hết thử việc' },
-    { companyId, code: 'RESIGNED', statusName: 'Đã nghỉ việc' },
-    { companyId, code: 'TERMINATED', statusName: 'Sa thải' },
-    { companyId, code: 'MATERNITY_LEAVE', statusName: 'Nghỉ thai sản' },
-    { companyId, code: 'SUSPENDED', statusName: 'Tạm đình chỉ' },
+    { companyId, code: EmploymentStatusCode.WORKING, statusName: 'Đang làm việc' },
+    { companyId, code: EmploymentStatusCode.PROBATION_END, statusName: 'Hết thử việc' },
+    { companyId, code: EmploymentStatusCode.RESIGNED, statusName: 'Đã nghỉ việc' },
+    { companyId, code: EmploymentStatusCode.TERMINATED, statusName: 'Sa thải' },
+    { companyId, code: EmploymentStatusCode.MATERNITY_LEAVE, statusName: 'Nghỉ thai sản' },
+    { companyId, code: EmploymentStatusCode.SUSPENDED, statusName: 'Tạm đình chỉ' },
   ]); // AttendanceMethod – các phương thức chấm công
 
   const attMethods = await dataSource.getRepository(AttendanceMethod).save([
@@ -128,56 +129,21 @@ export const initDataSeed = async (dataSource: DataSource) => {
     { companyId, code: 'EXCEL_IMPORT', methodName: 'Import Excel' },
   ]); // LeaveType – các loại nghỉ phép phổ biến ở VN
 
-  const leaveTypes = await dataSource.getRepository(LeaveType).save([
-    {
+  // Sử dụng mapping để tự động tạo mảng dữ liệu seed từ Constants
+  const leaveTypeSeeds = Object.keys(LEAVE_TYPES).map((key) => {
+    const code = key as keyof typeof LEAVE_TYPES;
+
+    return {
       companyId,
-      code: 'ANNUAL_LEAVE',
-      leaveTypeName: 'Nghỉ phép năm',
-      isDeductLeave: true,
-    },
-    {
-      companyId,
-      code: 'UNPAID_LEAVE',
-      leaveTypeName: 'Nghỉ không lương',
-      isDeductLeave: false,
-    },
-    {
-      companyId,
-      code: 'SICK_LEAVE',
-      leaveTypeName: 'Nghỉ ốm',
-      isDeductLeave: false,
-    },
-    {
-      companyId,
-      code: 'MARRIAGE_SELF',
-      leaveTypeName: 'Kết hôn bản thân',
-      isDeductLeave: false,
-    },
-    {
-      companyId,
-      code: 'MARRIAGE_CHILD',
-      leaveTypeName: 'Con kết hôn',
-      isDeductLeave: false,
-    },
-    {
-      companyId,
-      code: 'FUNERAL_LEAVE',
-      leaveTypeName: 'Nghỉ hiếu',
-      isDeductLeave: false,
-    },
-    {
-      companyId,
-      code: 'PATERNITY_LEAVE',
-      leaveTypeName: 'Nghỉ sinh con (bố)',
-      isDeductLeave: false,
-    },
-    {
-      companyId,
-      code: 'MATERNITY_LEAVE',
-      leaveTypeName: 'Nghỉ thai sản',
-      isDeductLeave: false,
-    },
-  ]);
+      code: LEAVE_TYPES[code],
+      leaveTypeName: LEAVE_TYPE_LABELS[code],
+      // Tự động set isDeductLeave: true chỉ cho phép năm, còn lại là false
+      isDeductLeave: code === 'ANNUAL_LEAVE',
+    };
+  });
+
+  // Thực hiện save vào Database
+  const leaveTypes = await dataSource.getRepository(LeaveType).save(leaveTypeSeeds);
 
   const leavePolicy = await dataSource.getRepository(LeavePolicy).save({
     companyId,
@@ -197,7 +163,7 @@ export const initDataSeed = async (dataSource: DataSource) => {
             ? 3
             : lt.code === 'MARRIAGE_CHILD'
               ? 1
-              : lt.code === 'FUNERAL_LEAVE'
+              : lt.code === 'BEREAVEMENT_LEAVE'
                 ? 3
                 : null,
       isDeductLeave: lt.isDeductLeave,
@@ -625,91 +591,91 @@ export const initDataSeed = async (dataSource: DataSource) => {
   const groupsData = [
     {
       originId: '7617676707973074458',
-      code: 'GR_VAN_PHONG_1',
+      code: 'OFFICE_GROUP_1',
       groupName: 'Ca Văn Phòng 1',
       shiftCode: 'VAN_PHONG_1', // Map từ 7617681822219587098
       companyId,
     },
     {
       originId: '7617681982959554072',
-      code: 'GR_VAN_PHONG_2',
+      code: 'OFFICE_GROUP_2',
       groupName: 'Ca Văn Phòng 2',
       shiftCode: 'VAN_PHONG_2', // Map từ 17617686815940365847
       companyId,
     },
     {
       originId: '7617687309982371354',
-      code: 'GR_THAI_SAN_1',
+      code: 'MATERNITY_GROUP_1',
       groupName: 'Ca thai sản 1',
       shiftCode: 'CA_THAI_SAN_1', // Map từ 17617682250839723546
       companyId,
     },
     {
       originId: '7617689477007330840',
-      code: 'GR_THAI_SAN_2',
+      code: 'MATERNITY_GROUP_2',
       groupName: 'Ca thai sản 2',
       shiftCode: 'CA_THAI_SAN_2', // Map từ 17617682373005577752
       companyId,
     },
     {
       originId: '7617689963334307352',
-      code: 'GR_THAI_SAN_3',
+      code: 'MATERNITY_GROUP_3',
       groupName: 'Ca thai sản 3',
       shiftCode: 'CA_THAI_SAN_3', // Map từ 17617682487157722647
       companyId,
     },
     {
       originId: '7617690605853871642',
-      code: 'GR_THAI_SAN_4',
+      code: 'MATERNITY_GROUP_4',
       groupName: 'Ca thai sản 4',
       shiftCode: 'CA_THAI_SAN_4', // Map từ 17617682625448168986
       companyId,
     },
     {
       originId: '7617691029176651290',
-      code: 'GR_THAI_SAN_5',
+      code: 'MATERNITY_GROUP_5',
       groupName: 'Ca thai sản 5',
       shiftCode: 'CA_THAI_SAN_5', // Map từ 17617682773432405527
       companyId,
     },
     {
       originId: '7617691935276322327',
-      code: 'GR_THAI_SAN_6',
+      code: 'MATERNITY_GROUP_6',
       groupName: 'Ca thai sản 6',
       shiftCode: 'CA_THAI_SAN_6', // Map từ 17617683974790942231
       companyId,
     },
     {
       originId: '7617692580343500311',
-      code: 'GR_THAI_SAN_7',
+      code: 'MATERNITY_GROUP_7',
       groupName: 'Ca thai sản 7',
       shiftCode: 'CA_THAI_SAN_7', // Map từ 17617684273964781080
       companyId,
     },
     {
       originId: '7617694472352042522',
-      code: 'GR_THAI_SAN_8',
+      code: 'MATERNITY_GROUP_8',
       groupName: 'Ca thai sản 8',
       shiftCode: 'CA_THAI_SAN_8', // Map từ 17617684657173171736
       companyId,
     },
     {
       originId: '7617694808810753559',
-      code: 'GR_THAI_SAN_9',
+      code: 'MATERNITY_GROUP_9',
       groupName: 'Ca thai sản 9',
       shiftCode: 'CA_THAI_SAN_9', // Map từ 17617684839291555351
       companyId,
     },
     {
       originId: '7617695144120159768',
-      code: 'GR_THAI_SAN_10',
+      code: 'MATERNITY_GROUP_10',
       groupName: 'Ca thai sản 10',
       shiftCode: 'CA_THAI_SAN_10', // Map từ 17617684959968415256
       companyId,
     },
     {
       originId: '7617745162118123031',
-      code: 'GR_CUA_HANG',
+      code: 'STORE_GROUP_1',
       groupName: 'Ca cửa hàng',
       shiftCode: 'CA_CUA_HANG_1', // Map từ Cacuahang1
       allShiftCodes: ['CA_HANH_CHINH_1', 'CA_HANH_CHINH_2'], // Map từ list số cũ
@@ -799,10 +765,10 @@ export const initDataSeed = async (dataSource: DataSource) => {
   };
 
   const holidaysData = [
-    { name: 'Tết Dương lịch', date: '01/01/2026', type: 'PUBLIC', value: 1.0 },
-    { name: 'Tết Nguyên đán', date: '17/02/2026', type: 'PUBLIC', value: 1.0 },
-    { name: 'NKT VN', date: '18/04/2026', type: 'ANGEL', value: 1.0 }, // Map "Nghỉ lễ Angel" -> ANGEL
-    { name: 'Du lịch', date: '20/03/2026', type: 'SPECIAL', value: 1.0 }, // Map "Nghỉ đặc biệt" -> SPECIAL
+    { name: 'Tết Dương lịch', date: '01/01/2026', type: HOLIDAY_TYPES.PUBLIC, value: 1.0 },
+    { name: 'Tết Nguyên đán', date: '17/02/2026', type: HOLIDAY_TYPES.PUBLIC, value: 1.0 },
+    { name: 'NKT VN', date: '18/04/2026', type: HOLIDAY_TYPES.ANGEL, value: 1.0 },
+    { name: 'Du lịch', date: '20/03/2026', type: HOLIDAY_TYPES.SPECIAL, value: 1.0 },
   ];
 
   for (const h of holidaysData) {
@@ -841,7 +807,7 @@ export const initDataSeed = async (dataSource: DataSource) => {
       id: '1001',
       userName: 'vp_chuan',
       fullName: 'NV VP Đi Chuẩn',
-      groupCode: 'GR_VAN_PHONG_1', // Ca VP 1
+      groupCode: 'OFFICE_GROUP_1', // Ca VP 1
       isMaternity: false,
       isStore: false,
     },
@@ -849,7 +815,7 @@ export const initDataSeed = async (dataSource: DataSource) => {
       id: '1002',
       userName: 'vp_dimuon',
       fullName: 'NV VP Đi Muộn',
-      groupCode: 'GR_VAN_PHONG_1',
+      groupCode: 'OFFICE_GROUP_1',
       isMaternity: false,
       isStore: false,
     },
@@ -857,7 +823,7 @@ export const initDataSeed = async (dataSource: DataSource) => {
       id: '1003',
       userName: 'vp_vesom',
       fullName: 'NV VP Về Sớm',
-      groupCode: 'GR_VAN_PHONG_1',
+      groupCode: 'OFFICE_GROUP_1',
       isMaternity: false,
       isStore: false,
     },
@@ -865,7 +831,7 @@ export const initDataSeed = async (dataSource: DataSource) => {
       id: '1004',
       userName: 'vp_quen_cham',
       fullName: 'NV VP Quên Chấm Công',
-      groupCode: 'GR_VAN_PHONG_1',
+      groupCode: 'OFFICE_GROUP_1',
       isMaternity: false,
       isStore: false,
     },
@@ -873,7 +839,7 @@ export const initDataSeed = async (dataSource: DataSource) => {
       id: '1005',
       userName: 'ts_muon_1h',
       fullName: 'NV Thai Sản Đi Muộn 1h',
-      groupCode: 'GR_THAI_SAN_1', // Ca thai sản 1
+      groupCode: 'MATERNITY_GROUP_1', // Ca thai sản 1
       isMaternity: true,
       isStore: false,
     },
@@ -881,7 +847,7 @@ export const initDataSeed = async (dataSource: DataSource) => {
       id: '1006',
       userName: 'ts_ve_som_1h',
       fullName: 'NV Thai Sản Về Sớm 1h',
-      groupCode: 'GR_THAI_SAN_2', // Ca thai sản 2
+      groupCode: 'MATERNITY_GROUP_2', // Ca thai sản 2
       isMaternity: true,
       isStore: false,
     },
@@ -889,7 +855,7 @@ export const initDataSeed = async (dataSource: DataSource) => {
       id: '1007',
       userName: 'ch_ca_sang',
       fullName: 'NV Cửa Hàng Ca Sáng',
-      groupCode: 'GR_CUA_HANG', // Ca cửa hàng
+      groupCode: 'STORE_GROUP_1', // Ca cửa hàng
       isMaternity: false,
       isStore: true,
     },
@@ -897,7 +863,7 @@ export const initDataSeed = async (dataSource: DataSource) => {
       id: '1008',
       userName: 'ch_ca_chieu',
       fullName: 'NV Cửa Hàng Ca Chiều',
-      groupCode: 'GR_CUA_HANG', // Ca cửa hàng
+      groupCode: 'STORE_GROUP_1', // Ca cửa hàng
       isMaternity: false,
       isStore: true,
     },
@@ -905,7 +871,7 @@ export const initDataSeed = async (dataSource: DataSource) => {
       id: '1009',
       userName: 'ch_xoay_ca',
       fullName: 'NV Cửa Hàng Xoay Ca',
-      groupCode: 'GR_CUA_HANG', // Ca cửa hàng
+      groupCode: 'STORE_GROUP_1', // Ca cửa hàng
       isMaternity: false,
       isStore: true,
     },
@@ -913,7 +879,7 @@ export const initDataSeed = async (dataSource: DataSource) => {
       id: '1010',
       userName: 'vp_parttime',
       fullName: 'NV VP Part-time',
-      groupCode: 'GR_VAN_PHONG_1', // Ca VP 1
+      groupCode: 'OFFICE_GROUP_1', // Ca VP 1
       isPartTime: true,
       isMaternity: false,
       isStore: false,
@@ -922,7 +888,7 @@ export const initDataSeed = async (dataSource: DataSource) => {
       id: '1011',
       userName: 'vp_t7_off',
       fullName: 'NV VP Nghỉ Thứ 7',
-      groupCode: 'GR_VAN_PHONG_1', // Ca VP 1
+      groupCode: 'OFFICE_GROUP_1', // Ca VP 1
       isSaturdayOff: true,
       isMaternity: false,
       isStore: false,
@@ -936,7 +902,7 @@ export const initDataSeed = async (dataSource: DataSource) => {
     const joinedAt = faker.date.past({ years: 4 });
     const selectedGroup = savedGroups.find((g) => g.code === tc.groupCode) || empGroup;
 
-    let empType = empTypes.find((t) => t.code === 'OFFICIAL')!;
+    let empType = empTypes.find((t) => t.code === EmployeeTypeCode.OFFICIAL)!;
     if (tc.isPartTime) empType = empTypes.find((t) => t.code === 'PART_TIME')!;
     if (tc.isStore) empType = empTypes.find((t) => t.code === 'SHIFT_WORKER')!;
 
@@ -957,7 +923,7 @@ export const initDataSeed = async (dataSource: DataSource) => {
       attendanceGroup: selectedGroup,
       jobLevel: randomFromArray(jobLevels),
       employeeType: empType,
-      employeeStatus: empStatuses.find((s) => s.code === 'WORKING') || empStatuses[0],
+      employeeStatus: empStatuses.find((s) => s.code === EmploymentStatusCode.WORKING) || empStatuses[0],
       attendanceMethod: attMethods.find(m => m.code === 'TIME_MACHINE') || attMethods[0],
       is_saturday_off: !!tc.isSaturdayOff,
       is_angel: false,

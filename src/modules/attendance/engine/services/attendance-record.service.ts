@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { RawPunchInputDto } from '../dto/raw-punch.input';
+import { PUNCH_TYPES } from 'src/constants/attendance-record.constants';
 
 @Injectable()
 export class AttendanceRecordService {
@@ -11,13 +12,13 @@ export class AttendanceRecordService {
       userTask.records.forEach((record) => {
         if (record.check_in_record?.record_id) {
           flattenedPunches.push(
-            this.mapToRawPunch(userTask, record, 'IN', companyId, day),
+            this.mapToRawPunch(userTask, record, PUNCH_TYPES.IN, companyId, day),
           );
         }
 
         if (record.check_out_record?.record_id) {
           flattenedPunches.push(
-            this.mapToRawPunch(userTask, record, 'OUT', companyId, day),
+            this.mapToRawPunch(userTask, record, PUNCH_TYPES.OUT, companyId, day),
           );
         }
       });
@@ -29,11 +30,11 @@ export class AttendanceRecordService {
   private mapToRawPunch(
     userTask: any,
     record: any,
-    type: 'IN' | 'OUT',
+    type: typeof PUNCH_TYPES[keyof typeof PUNCH_TYPES],
     companyId: string,
     day: number
   ): RawPunchInputDto {
-    const isCheckIn = type === 'IN';
+    const isCheckIn = type === PUNCH_TYPES.IN;
     const larkRecord = isCheckIn
       ? record.check_in_record
       : record.check_out_record;

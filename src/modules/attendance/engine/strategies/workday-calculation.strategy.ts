@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { ATTENDANCE_GROUPS } from 'src/constants/attendance-group.constants';
 import { CalculationContext } from '../dto/calculation-context.dto';
 
 @Injectable()
@@ -35,8 +36,7 @@ export class WorkdayCalculationStrategy {
     const groupCode = context.employee.attendanceGroup?.code;
     const isMaternity = !!context.employee['is_maternity_shift'];
     const isFactoryGroup =
-      groupCode === 'FACTORY_GROUP' ||
-      context.attendanceGroupName === 'Nhóm Khối Xưởng';
+      groupCode === ATTENDANCE_GROUPS.FACTORY_GROUP;
 
     const standardHours = context.shiftContext
       ? context.shiftContext.getStandardWorkHours(isMaternity, groupCode)

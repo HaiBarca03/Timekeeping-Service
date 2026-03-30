@@ -1,7 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { ATTENDANCE_GROUPS } from 'src/constants/attendance-group.constants';
+import { HOLIDAY_TYPES } from 'src/constants/holiday-type.constants';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Between, Raw, Repository } from 'typeorm';
-import { Employee } from 'src/modules/master-data/entities/employee.entity';
 import { Shift } from 'src/modules/master-data/entities/shift.entity';
 import { ShiftContext } from '../dto/shift-context.dto';
 import { CalculationContext } from '../dto/calculation-context.dto';
@@ -31,8 +32,8 @@ export class ShiftResolverService {
     const groupCode = employee.attendanceGroup?.code;
     const dayOfWeek = date.getDay();
 
-    const isStoreGroup = groupCode === 'STORE_GROUP';
-    const isOfficeGroup = !isStoreGroup && groupCode !== 'FACTORY_GROUP';
+    const isStoreGroup = groupCode === ATTENDANCE_GROUPS.STORE_GROUP_1 || groupCode === ATTENDANCE_GROUPS.STORE_GROUP_2;
+    const isOfficeGroup = groupCode === ATTENDANCE_GROUPS.OFFICE_GROUP_1 || groupCode === ATTENDANCE_GROUPS.OFFICE_GROUP_2;
     const hasPunches = context.punches?.length > 0;
 
     const holiday = await this.holidayRepo.findOne({
@@ -51,8 +52,8 @@ export class ShiftResolverService {
       } else {
         // KIỂM TRA QUYỀN HƯỞNG LỄ (PUBLIC cho tất cả, ANGEL chỉ cho Angel)
         const isEnjoyable =
-          holiday.holiday_type === 'PUBLIC' ||
-          (holiday.holiday_type === 'ANGEL' && employee.is_angel);
+          holiday.holiday_type === HOLIDAY_TYPES.PUBLIC ||
+          (holiday.holiday_type === HOLIDAY_TYPES.ANGEL && employee.is_angel);
 
         if (isEnjoyable) {
           // CASE 1: TRÙNG NGÀY NGHỈ (KHÔNG GÁN CA)
@@ -62,9 +63,7 @@ export class ShiftResolverService {
 
           if (hasAssignment) {
             context.isHoliday = true;
-            // context.isConfiguredOffDay = true; // Đánh dấu nghỉ hưởng lễ
             context.finalTotalWorkday = 1.0; // Được hưởng 1 công lễ
-            // return new ShiftContext(); // Nghỉ lễ không cần gán ca làm việc
           } else {
             this.logger.debug(
               `Lễ trùng ngày nghỉ/ngày không gán ca -> Không hưởng công lễ.`,
@@ -94,22 +93,6 @@ export class ShiftResolverService {
       this.logger.debug(
         `Thứ 7 Office -> Đánh dấu Candidate để hậu xử lý tối ưu`,
       );
-      // if (!hasPunches) {
-      //   // Nếu KHÔNG ĐI LÀM: Kiểm tra xem đã dùng hết hạn mức nghỉ chưa
-      //   const totalSaturdays = this.getTotalSaturdaysInMonth(date);
-      //   const maxOffDays = totalSaturdays === 5 ? 3 : 2; // 5 Thứ 7 nghỉ 3, 4 Thứ 7 nghỉ 2
-
-      //   // đếm xem dã làm mấy t7
-      //   const offCount = await this.countConfiguredOffDays(employee.id, date);
-
-      //   if (offCount < maxOffDays) {
-      //     this.logger.debug(
-      //       `Thứ 7 nghỉ chế độ (Không đi làm): ${offCount + 1}/${maxOffDays}`,
-      //     );
-      //     return this.markAsConfiguredOff(context);
-      //   }
-      // } else {
-      // }
       context.isSaturdayCandidate = true;
       context['isSaturdayCandidate'] = true;
       return this.resolveOfficeShift(context);
@@ -201,7 +184,7 @@ export class ShiftResolverService {
     const groupCode = employee.attendanceGroup?.code;
 
     // Nếu là khối Cửa hàng: Bắt buộc phải có ShiftAssignment hoạt động
-    if (groupCode === 'STORE_GROUP') {
+    if (groupCode === ATTENDANCE_GROUPS.STORE_GROUP_1 || groupCode === ATTENDANCE_GROUPS.STORE_GROUP_2) {
       const assignment = await this.shiftAssignmentRepo.findOne({
         where: { employeeId: employee.id, date: date, isActive: true },
       });
