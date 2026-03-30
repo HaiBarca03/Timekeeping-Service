@@ -7,7 +7,7 @@ import {
   AttendanceRequest,
   RequestType,
 } from '../../../approval-management/entities/attendance-request.entity';
-import { RequestStatus } from 'src/constants/req-status.contants';
+import { RequestStatus } from 'src/constants/approval-status.constants';
 
 @Injectable()
 export class OvertimeStrategy {

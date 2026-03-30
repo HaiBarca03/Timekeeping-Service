@@ -9,7 +9,7 @@ import {
 } from '../../../approval-management/entities/attendance-request.entity';
 import { ShiftContext } from '../dto/shift-context.dto';
 import { ShiftAssignment } from '../../entities/shift-assignment.entity';
-import { RequestStatus } from 'src/constants/req-status.contants';
+import { RequestStatus } from 'src/constants/approval-status.constants';
 
 @Injectable()
 export class SwapStrategy {

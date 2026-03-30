@@ -10,7 +10,7 @@ import {
 } from '../../../approval-management/entities/attendance-request.entity';
 import { LeavePolicyRule } from '../../../master-data/entities/leave-policy-rule.entity';
 import { LeaveType } from '../../../master-data/entities/leave-type.entity';
-import { RequestStatus } from 'src/constants/req-status.contants';
+import { RequestStatus } from 'src/constants/approval-status.constants';
 
 @Injectable()
 export class LeaveStrategy {

@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { RequestStatus } from 'src/constants/approval-status.constants';
 import { LEAVE_LABEL_TO_CODE, LEAVE_TYPES } from 'src/constants/leave-type.constants';
 import { DataSource } from 'typeorm';
 import { AttendanceRequest, RequestType } from './entities/attendance-request.entity';
@@ -129,9 +130,9 @@ export class ApprovalManagementService {
         const rawStatus = fields.status || '';
         const newStatus = rawStatus.toLowerCase();
 
-        const isApproved = newStatus === 'approved';
-        const wasApproved = oldStatus === 'approved';
-        const isRejected = newStatus === 'rejected';
+        const isApproved = newStatus === RequestStatus.APPROVED;
+        const wasApproved = oldStatus === RequestStatus.APPROVED;
+        const isRejected = newStatus === RequestStatus.REJECTED;
 
         console.log('newStatus', newStatus)
         console.log('oldStatus', oldStatus)
