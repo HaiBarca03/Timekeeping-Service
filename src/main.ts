@@ -37,16 +37,16 @@ async function bootstrap() {
   const options = new DocumentBuilder()
     .setTitle('API')
     .setDescription('API docs')
-    .setVersion('1.0')
-    .addBearerAuth({
-      type: 'http',
-      scheme: 'bearer',
-      bearerFormat: 'JWT',
-      in: 'header',
-      name: 'Authorization',
-      description: 'Enter your Bearer token',
-    })
-    .addSecurityRequirements('bearer')
+    .addApiKey(
+      {
+        type: 'apiKey',
+        name: 'x-api-key',
+        in: 'header',
+        description: 'Enter your API Key',
+      },
+      'x-api-key',
+    )
+    .addSecurityRequirements('x-api-key')
     .build();
     
     const document = SwaggerModule.createDocument(app, options);
