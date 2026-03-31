@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsNotEmpty, IsDateString, IsOptional, IsBoolean } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsBoolean, IsNumber } from 'class-validator';
 
 export class CreateShiftAssignmentDto {
   @ApiProperty({ description: ' ID of the Company' })
@@ -12,7 +12,7 @@ export class CreateShiftAssignmentDto {
   @IsNotEmpty()
   userId: string;
 
-  @ApiProperty({ description: 'Store ID (BigInt/String from Lark)', example: '123456789' })
+  @ApiProperty({ description: 'The original ID of the Store', example: '123456789abc' })
   @IsString()
   @IsNotEmpty()
   storeId: string;
@@ -22,25 +22,25 @@ export class CreateShiftAssignmentDto {
   @IsOptional()
   originId?: string;
 
-  @ApiProperty({ description: 'Assigned Date (YYYY-MM-DD)', example: '2026-03-25' })
-  @IsDateString()
+  @ApiProperty({ description: 'Assigned Date (Timestamp in ms)', example: 1711324800000 })
+  @IsNumber()
   @IsNotEmpty()
-  date: string;
+  date: number;
 
   @ApiProperty({ description: 'Origin ID of the Shift', example: 'S1' })
   @IsString()
   @IsNotEmpty()
   shiftOriginId: string;
 
-  @ApiProperty({ description: 'Standard On Time (Timestamp)', example: '2026-03-25T08:00:00Z' })
-  @IsDateString()
+  @ApiProperty({ description: 'Standard On Time (Timestamp in ms)', example: 1711353600000 })
+  @IsNumber()
   @IsNotEmpty()
-  onTime: string;
+  onTime: number;
 
-  @ApiProperty({ description: 'Standard Off Time (Timestamp)', example: '2026-03-25T17:00:00Z' })
-  @IsDateString()
+  @ApiProperty({ description: 'Standard Off Time (Timestamp in ms)', example: 1711386000000 })
+  @IsNumber()
   @IsNotEmpty()
-  offTime: string;
+  offTime: number;
 
   @ApiProperty({ description: 'Is the assignment active?', default: true })
   @IsBoolean()

@@ -13,7 +13,7 @@ export class ShiftAssignment extends BaseEntity {
   @Column({ name: 'employee_id', type: 'bigint' })
   employeeId: string;
 
-  @Column({ name: 'store_id', type: 'bigint' })
+  @Column({ name: 'store_id', type: 'varchar' })
   storeId: string;
 
   @Index({ unique: true })

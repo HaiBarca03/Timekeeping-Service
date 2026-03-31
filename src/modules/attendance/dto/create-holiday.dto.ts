@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsNotEmpty, IsDateString, IsOptional, IsNumber, IsBoolean } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsNumber, IsBoolean } from 'class-validator';
 import { HOLIDAY_TYPES } from '../../../constants/holiday-type.constants';
 
 export class CreateHolidayDto {
@@ -8,10 +8,10 @@ export class CreateHolidayDto {
   @IsNotEmpty()
   holiday_name: string;
 
-  @ApiProperty({ description: 'Date of the holiday (YYYY-MM-DD)', example: '2026-01-01' })
-  @IsDateString()
+  @ApiProperty({ description: 'Date of the holiday (Timestamp in ms)', example: 1711324800000 })
+  @IsNumber()
   @IsNotEmpty()
-  holiday_date: string;
+  holiday_date: number;
 
   @ApiProperty({
     description: 'Type of holiday',

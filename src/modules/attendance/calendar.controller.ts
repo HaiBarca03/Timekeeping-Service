@@ -1,4 +1,4 @@
-import { Controller, Post, Patch, Body, Param, Query, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Post, Patch, Body, Param, Query, Get, HttpCode, HttpStatus } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBody, ApiParam } from '@nestjs/swagger';
 import { CalendarService } from './calendar.service';
 import { CreateHolidayDto } from './dto/create-holiday.dto';
@@ -22,15 +22,19 @@ export class CalendarController {
     return this.calendarService.createHoliday(dto);
   }
 
-  @Patch('holidays/:id')
-  @ApiOperation({ summary: 'Update an existing holiday' })
-  @ApiParam({ name: 'id', description: 'Internal ID of the holiday' })
-  async updateHoliday(@Param('id') id: string, @Body() dto: UpdateHolidayDto) {
-    return this.calendarService.updateHoliday(id, dto);
+  @Patch('holidays/:date')
+  @ApiOperation({ summary: 'Update holiday by date' })
+  @ApiParam({ name: 'date', description: 'Format: YYYY-MM-DD' })
+  async updateHoliday(
+    @Param('date') date: string,
+    @Param('companyId') companyId: string,
+    @Body() dto: UpdateHolidayDto
+  ) {
+    return this.calendarService.updateHoliday(date, companyId, dto);
   }
 
   @Post('holidays/bulk')
-  @ApiOperation({ summary: 'Bulk create/update holidays' })
+  @ApiOperation({ summary: 'Bulk create holidays' })
   async bulkCreateHolidays(@Body() body: CreateManyHolidaysDto) {
     return this.calendarService.bulkCreateHolidays(body.data);
   }
@@ -44,16 +48,29 @@ export class CalendarController {
     return this.calendarService.createShiftAssignment(dto);
   }
 
-  @Patch('shift-assignments/:id')
+  @Patch('shift-assignments/:originId')
   @ApiOperation({ summary: 'Update an existing shift assignment' })
-  @ApiParam({ name: 'id', description: 'Internal ID of the assignment' })
-  async updateShiftAssignment(@Param('id') id: string, @Body() dto: UpdateShiftAssignmentDto) {
-    return this.calendarService.updateShiftAssignment(id, dto);
+  @ApiParam({ name: 'originId', description: 'Internal originId of the assignment' })
+  async updateShiftAssignment(@Param('originId') originId: string, @Body() dto: UpdateShiftAssignmentDto) {
+    return this.calendarService.updateShiftAssignment(originId, dto);
   }
 
   @Post('shift-assignments/bulk')
-  @ApiOperation({ summary: 'Bulk create/update shift assignments' })
+  @ApiOperation({ summary: 'Bulk create shift assignments' })
   async bulkCreateShiftAssignments(@Body() body: CreateManyShiftAssignmentsDto) {
     return this.calendarService.bulkCreateShiftAssignments(body.data);
+  }
+
+  @Get('shift-assignments/:originId')
+  @ApiOperation({ summary: 'Get shift assignment by originId' })
+  @ApiParam({ name: 'originId', description: 'Internal originId of the assignment' })
+  async getShiftAssignmentByOriginId(@Param('originId') originId: string) {
+    return this.calendarService.getShiftAssignmentByOriginId(originId);
+  }
+
+  @Get('shift-assignments')
+  @ApiOperation({ summary: 'Get all shift assignments' })
+  async getAllShiftAssignments() {
+    return this.calendarService.getAllShiftAssignments();
   }
 }
