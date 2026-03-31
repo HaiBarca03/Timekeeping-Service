@@ -35,4 +35,7 @@ export class BackdateOverride extends BaseEntity {
 
   @Column({ default: 'PENDING' })
   recalc_status: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
+
+  @Column({ type: 'jsonb', nullable: true })
+  affected_user_ids: string[];
 }
