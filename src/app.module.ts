@@ -7,6 +7,9 @@ import { ApprovalManagementModule } from './modules/approval-management/approval
 import { HealthController } from './health.controller';
 import { ScheduleModule } from '@nestjs/schedule';
 
+import { APP_GUARD } from '@nestjs/core';
+import { ApiKeyGuard } from './guards/api-key.guard';
+
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -19,9 +22,13 @@ import { ScheduleModule } from '@nestjs/schedule';
     AttendanceModule,
     ApprovalManagementModule,
   ],
+  controllers: [HealthController],
   providers: [
+    {
+      provide: APP_GUARD,
+      useClass: ApiKeyGuard,
+    },
     // Logger,
-    HealthController,
   ],
 })
 export class AppModule { }
