@@ -48,17 +48,19 @@ export class CalendarController {
     return this.calendarService.createShiftAssignment(dto);
   }
 
+  @Post('shift-assignments/bulk')
+  @ApiOperation({ summary: 'Sync shift assignments in bulk' })
+  @ApiBody({ type: [CreateShiftAssignmentDto] })
+  @ApiResponse({ status: 201, description: 'Shift assignments synced successfully' })
+  async bulkSyncShiftAssignments(@Body() dtos: CreateShiftAssignmentDto[]) {
+    return this.calendarService.syncShiftAssignments(dtos);
+  }
+
   @Patch('shift-assignments/:originId')
   @ApiOperation({ summary: 'Update an existing shift assignment' })
   @ApiParam({ name: 'originId', description: 'Internal originId of the assignment' })
   async updateShiftAssignment(@Param('originId') originId: string, @Body() dto: UpdateShiftAssignmentDto) {
     return this.calendarService.updateShiftAssignment(originId, dto);
-  }
-
-  @Post('shift-assignments/bulk')
-  @ApiOperation({ summary: 'Bulk create shift assignments' })
-  async bulkCreateShiftAssignments(@Body() body: CreateManyShiftAssignmentsDto) {
-    return this.calendarService.bulkCreateShiftAssignments(body.data);
   }
 
   @Get('shift-assignments/:originId')
