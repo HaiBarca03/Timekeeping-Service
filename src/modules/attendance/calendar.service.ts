@@ -220,6 +220,144 @@ export class CalendarService {
     });
   }
 
+  async syncShiftAssignments(dtos: CreateShiftAssignmentDto[]) {
+    if (!dtos || dtos.length === 0) return [];
+
+    const companyIds = [...new Set(dtos.map(d => d.companyId))];
+    const userIds = [...new Set(dtos.map(d => d.userId))];
+    const shiftOriginIds = [...new Set(dtos.map(d => d.shiftOriginId))];
+
+    const [companies, employees, shifts] = await Promise.all([
+      this.companyRepo.findBy({ id: In(companyIds) }),
+      this.employeeRepo.findBy({ userId: In(userIds) }),
+      this.shiftRepo.findBy({ originId: In(shiftOriginIds) }),
+    ]);
+
+    const companyMap = new Map(companies.map(c => [c.id, c]));
+    const employeeMap = new Map(employees.map(e => [`${e.userId}_${e.companyId}`, e]));
+    const shiftMap = new Map(shifts.map(s => [s.originId, s]));
+
+    const groupedByEmployee = new Map<string, CreateShiftAssignmentDto[]>();
+    dtos.forEach((dto, index) => {
+      const company = companyMap.get(dto.companyId);
+      if (!company) {
+        throw new BusinessException(
+          `Company with id ${dto.companyId} not found at item #${index}`,
+          BusinessCodes.COMPANY_NOT_FOUND.code
+        );
+      }
+
+      const employee = employeeMap.get(`${dto.userId}_${company.id}`);
+      if (!employee) {
+        throw new BusinessException(
+          `Employee ${dto.userId} not found in company ${company.id} at item #${index}`,
+          BusinessCodes.EMPLOYEE_NOT_FOUND.code
+        );
+      }
+
+      const shift = shiftMap.get(dto.shiftOriginId);
+      if (!shift) {
+        throw new BusinessException(
+          `Shift ${dto.shiftOriginId} not found at item #${index}`,
+          BusinessCodes.NOT_FOUND.code
+        );
+      }
+
+      const key = `${dto.userId}_${company.id}`;
+      const group = groupedByEmployee.get(key) || [];
+      group.push(dto);
+      groupedByEmployee.set(key, group);
+    });
+
+    const allResults: ShiftAssignment[] = [];
+
+    await this.shiftAssignmentRepo.manager.transaction(async (transactionalEntityManager) => {
+      for (const [empKey, group] of groupedByEmployee.entries()) {
+        const employee = employeeMap.get(empKey);
+        if (!employee) continue;
+
+        const timestamps = group.map(d => d.date);
+        const minTs = Math.min(...timestamps);
+        const maxTs = Math.max(...timestamps);
+
+        const getMonday = (d: Date) => {
+          const day = d.getDay();
+          const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+          const monday = new Date(d.setDate(diff));
+          monday.setHours(0, 0, 0, 0);
+          return monday;
+        };
+
+        const getSunday = (d: Date) => {
+          const monday = getMonday(new Date(d));
+          const sunday = new Date(monday);
+          sunday.setDate(monday.getDate() + 6);
+          sunday.setHours(23, 59, 59, 999);
+          return sunday;
+        };
+
+        const startDate = getMonday(new Date(minTs));
+        const endDate = getSunday(new Date(maxTs));
+
+        const existingRecords = await transactionalEntityManager.find(ShiftAssignment, {
+          where: {
+            employeeId: employee.id,
+            date: In(group.map(d => new Date(d.date).toISOString().split('T')[0])) // Specific dates in the batch
+          }
+        });
+
+        const existingInRange = await transactionalEntityManager.createQueryBuilder(ShiftAssignment, 'sa')
+          .where('sa.employee_id = :employeeId', { employeeId: employee.id })
+          .andWhere('sa.date >= :startDate AND sa.date <= :endDate', { startDate, endDate })
+          .getMany();
+
+        const existingMap = new Map<string, ShiftAssignment>(
+          existingInRange
+            .filter((r): r is ShiftAssignment & { originId: string } => !!r.originId)
+            .map(r => [r.originId, r])
+        );
+        const inputOriginIds = new Set<string>(
+          group.map(d => d.originId).filter((id): id is string => !!id)
+        );
+
+        const toDelete = existingInRange.filter(r => r.originId && !inputOriginIds.has(r.originId));
+        if (toDelete.length > 0) {
+          await transactionalEntityManager.remove(toDelete);
+        }
+
+        for (const dto of group) {
+          if (!dto.originId) continue; // Skip if no originId provided for sync
+
+          const shift = shiftMap.get(dto.shiftOriginId);
+          if (!shift) continue;
+
+          let assignment = existingMap.get(dto.originId);
+          if (!assignment) {
+            assignment = this.shiftAssignmentRepo.create({
+              companyId: employee.companyId,
+              employeeId: employee.id,
+              shiftId: shift.id,
+              originId: dto.originId,
+            });
+          }
+
+          Object.assign(assignment, {
+            storeId: dto.storeId,
+            date: new Date(dto.date),
+            onTime: new Date(dto.onTime),
+            offTime: new Date(dto.offTime),
+            isActive: dto.isActive !== undefined ? dto.isActive : true,
+            shiftId: shift.id, // In case it changed?
+          });
+
+          allResults.push(await transactionalEntityManager.save(assignment));
+        }
+      }
+    });
+
+    return allResults;
+  }
+
   private async resolveCompany(originId: string) {
     const company = await this.companyRepo.findOneBy({ id: originId });
     if (!company) {
