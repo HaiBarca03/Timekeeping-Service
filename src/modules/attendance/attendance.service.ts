@@ -555,6 +555,7 @@ export class AttendanceService {
           effective_from: new Date(data.effectiveFrom),
           effective_to: data.effectiveTo ? new Date(data.effectiveTo) : null,
           override_values: data.overrideValues,
+          affected_user_ids: data.userIds,
           reason: data.reason,
           recalc_status: 'PROCESSING', // Trigger tính lại khi update
         });
@@ -568,6 +569,7 @@ export class AttendanceService {
           effective_from: new Date(data.effectiveFrom),
           effective_to: data.effectiveTo ? new Date(data.effectiveTo) : null,
           override_values: data.overrideValues,
+          affected_user_ids: data.userIds,
           reason: data.reason,
           recalc_status: 'PROCESSING',
         });
@@ -584,11 +586,29 @@ export class AttendanceService {
     const override = await this.overrideRepo.findOneBy({ id: overrideId });
     if (!override) return;
     this.logger.debug('[DEBUG] override:', override);
-    const affectedEmpIds = await this.fallbackQueryFromEmployeeMaster(
-      override.entity_type,
-      override.entity_id,
-      override.company_id,
-    );
+    let affectedEmpIds: string[] = [];
+
+    if (override.affected_user_ids && override.affected_user_ids.length > 0) {
+      // 1. Trường hợp có truyền user_ids: Lấy ID nội bộ tương ứng
+      const employees = await this.employeeRepo.find({
+        where: {
+          companyId: override.company_id,
+          userId: In(override.affected_user_ids),
+        },
+        select: ['id'],
+      });
+      affectedEmpIds = employees.map((e) => e.id);
+      this.logger.log(`[OVERRIDE] Sử dụng ${affectedEmpIds.length} nhân viên từ danh sách truyền vào.`);
+    } else {
+      // 2. Trường hợp cũ: Tự động tìm kiếm (Dự phòng)
+      // affectedEmpIds = await this.fallbackQueryFromEmployeeMaster(
+      //   override.entity_type,
+      //   override.entity_id,
+      //   override.company_id,
+      // );
+      affectedEmpIds = [];
+      this.logger.warn(`[OVERRIDE] Không tìm thấy danh sách user_ids, mảng bị rỗng.`);
+    }
 
     this.logger.log(
       `[OVERRIDE] Đang xử lý ${affectedEmpIds.length} nhân viên bị ảnh hưởng...`,
