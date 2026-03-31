@@ -1,0 +1,18 @@
+stages:
+  - lint
+
+lint_check:
+  stage: lint
+  image: node:22-alpine
+  cache:
+    key: ${CI_COMMIT_REF_SLUG}
+    paths:
+      - node_modules/
+      - .yarn-cache/
+  script:
+    - yarn install --frozen-lockfile --cache-folder .yarn-cache
+    - yarn lint
+  only:
+    - main
+    - feat/init-project
+    - merge_requests

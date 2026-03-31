@@ -47,8 +47,9 @@ export class CalendarService {
     return await this.holidayRepo.save(holiday);
   }
 
-  async updateHoliday(id: string, dto: UpdateHolidayDto) {
-    const holiday = await this.holidayRepo.findOneBy({ id });
+  async updateHoliday(date: string, companyId: string, dto: UpdateHolidayDto) {
+    const holidayDate = isNaN(Number(date)) ? new Date(date) : new Date(Number(date));
+    const holiday = await this.holidayRepo.findOneBy({ holiday_date: holidayDate, companyId });
     if (!holiday) {
       throw new BusinessException('Holiday not found', BusinessCodes.NOT_FOUND.code);
     }
@@ -84,19 +85,6 @@ export class CalendarService {
 
     return await this.holidayRepo.save(entities);
   }
-
-  async bulkUpdateHolidays(dtos: (UpdateHolidayDto & { id: string })[]) {
-    // Định nghĩa results là mảng chứa các kết quả trả về từ updateHoliday
-    const results: any[] = [];
-
-    for (const dto of dtos) {
-      // Giả sử updateHoliday trả về Entity Holiday hoặc kết quả Update
-      const updated = await this.updateHoliday(dto.id, dto);
-      results.push(updated);
-    }
-    return results;
-  }
-
   // --- ShiftAssignment APIs ---
 
   async createShiftAssignment(dto: CreateShiftAssignmentDto) {
@@ -132,8 +120,8 @@ export class CalendarService {
     return await this.shiftAssignmentRepo.save(assignment);
   }
 
-  async updateShiftAssignment(id: string, dto: UpdateShiftAssignmentDto) {
-    const assignment = await this.shiftAssignmentRepo.findOneBy({ id });
+  async updateShiftAssignment(originId: string, dto: UpdateShiftAssignmentDto) {
+    const assignment = await this.shiftAssignmentRepo.findOneBy({ originId });
     if (!assignment) {
       throw new BusinessException('Shift assignment not found', BusinessCodes.NOT_FOUND.code);
     }
@@ -212,6 +200,24 @@ export class CalendarService {
 
   async bulkUpdateShiftAssignments(dtos: CreateShiftAssignmentDto[]) {
     return this.bulkCreateShiftAssignments(dtos);
+  }
+
+  async getShiftAssignmentByOriginId(originId: string) {
+    const assignment = await this.shiftAssignmentRepo.findOne({
+      where: { originId },
+      relations: ['employee', 'shift']
+    });
+    if (!assignment) {
+      throw new BusinessException('Shift assignment not found', BusinessCodes.NOT_FOUND.code);
+    }
+    return assignment;
+  }
+
+  async getAllShiftAssignments() {
+    return await this.shiftAssignmentRepo.find({
+      relations: ['employee', 'shift'],
+      order: { date: 'DESC' }
+    });
   }
 
   private async resolveCompany(originId: string) {
