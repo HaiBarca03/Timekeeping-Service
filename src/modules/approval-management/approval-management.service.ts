@@ -10,6 +10,7 @@ import { AttendanceEngine } from '../attendance/engine/attendance.engine';
 import { RequestDetailOvertime } from './entities/request-detail-overtime.entity';
 import { RequestDetailAdjustment } from './entities/request-detail-adjustment.entity';
 import { ExternalApprovalPayloadDto, ExternalApprovalProcess } from './dto/external-approval.dto';
+import { OvertimeConversionCode } from 'src/constants/overtime-conversion.enum';
 
 @Injectable()
 export class ApprovalManagementService {
@@ -173,6 +174,18 @@ export class ApprovalManagementService {
           otDetail.start_time = startTime;
           otDetail.end_time = endTime;
           otDetail.hours_ratio = savedRequest.total_hours;
+
+          // Phân loại OT: Tăng ca (PAYMENT) vs Nghỉ bù (COMPENSATORY_LEAVE)
+          const otTypeLabel = fields.leave_type_detail?.trim();
+          if (otTypeLabel === 'Tăng ca') {
+            otDetail.convert_type = OvertimeConversionCode.PAYMENT;
+          } else if (otTypeLabel === 'Nghỉ bù' || otTypeLabel === 'Nghĩ bù') {
+            otDetail.convert_type = OvertimeConversionCode.COMPENSATORY_LEAVE;
+          } else {
+            // Mặc định là Tăng ca nếu không chỉ định rõ
+            otDetail.convert_type = OvertimeConversionCode.PAYMENT;
+          }
+
           await queryRunner.manager.save(otDetail);
         }
         else if (type === RequestType.CORRECTION || type === RequestType.MATERNITY || type === RequestType.SWAP) {

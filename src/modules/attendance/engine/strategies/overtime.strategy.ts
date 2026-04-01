@@ -1,13 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { LEAVE_TYPES } from 'src/constants/leave-type.constants';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CalculationContext } from '../dto/calculation-context.dto';
-import {
-  AttendanceRequest,
-  RequestType,
-} from '../../../approval-management/entities/attendance-request.entity';
+import { AttendanceRequest, RequestType } from '../../../approval-management/entities/attendance-request.entity';
 import { RequestStatus } from 'src/constants/approval-status.constants';
+import { OvertimeConversionCode } from 'src/constants/overtime-conversion.enum';
 
 @Injectable()
 export class OvertimeStrategy {
@@ -65,9 +62,10 @@ export class OvertimeStrategy {
       return;
     }
 
-    context.overtimeMinutes = hours * 60;
-
-    if (otRequest.convertType === LEAVE_TYPES.COMPENSATORY_LEAVE) {
+    // Phân loại: Tăng ca (PAYMENT) tính công, Nghỉ bù (COMPENSATORY_LEAVE) không tính công.
+    if (otRequest.convertType === OvertimeConversionCode.PAYMENT) {
+      context.overtimeMinutes = hours * 60;
+    } else if (otRequest.convertType === OvertimeConversionCode.COMPENSATORY_LEAVE) {
       context.overtimeCompensatoryMinutes = hours * 60;
     }
 
