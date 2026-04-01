@@ -7,7 +7,6 @@ import { Employee } from '../../modules/master-data/entities/employee.entity';
 import { Shift } from '../../modules/master-data/entities/shift.entity';
 import { ShiftRestRule } from '../../modules/master-data/entities/shift-rest-rule.entity';
 import { AttendanceGroup } from '../../modules/master-data/entities/attendance-group.entity';
-import { JobLevel } from '../../modules/master-data/entities/job-level.entity';
 import { EmployeeType } from '../../modules/master-data/entities/employee-type.entity';
 import { EmployeeStatus } from '../../modules/master-data/entities/employee-status.entity';
 import { LeaveType } from '../../modules/master-data/entities/leave-type.entity';
@@ -72,35 +71,6 @@ export const initDataSeed = async (dataSource: DataSource) => {
   const companyId4 = company4.id;
   // 2. MASTER DATA – Các bảng danh mục
   // ──────────────────────────────────────────────
-  // JobLevel – các cấp bậc phổ biến
-
-  const jobLevels = await dataSource.getRepository(JobLevel).save([
-    { companyId, code: 'STAFF', levelName: 'Nhân viên', status: 'ACTIVE' },
-    {
-      companyId,
-      code: 'TEAM_LEAD',
-      levelName: 'Trưởng nhóm',
-      status: 'ACTIVE',
-    },
-    {
-      companyId,
-      code: 'MANAGER',
-      levelName: 'Quản lý phòng ban',
-      status: 'ACTIVE',
-    },
-    {
-      companyId,
-      code: 'SENIOR_MGR',
-      levelName: 'Quản lý cấp cao',
-      status: 'ACTIVE',
-    },
-    {
-      companyId,
-      code: 'DIRECTOR',
-      levelName: 'Giám đốc khối',
-      status: 'ACTIVE',
-    },
-  ]); // EmployeeType – các loại hình lao động
 
   const empTypes = await dataSource.getRepository(EmployeeType).save([
     { companyId, code: EmployeeTypeCode.OFFICIAL, typeName: 'Chính thức' },
@@ -921,7 +891,6 @@ export const initDataSeed = async (dataSource: DataSource) => {
       workLocation: tc.isStore ? workLocationStore : workLocationOffice,
       departments: [tc.isStore ? deptStore : deptOffice],
       attendanceGroup: selectedGroup,
-      jobLevel: randomFromArray(jobLevels),
       employeeType: empType,
       employeeStatus: empStatuses.find((s) => s.code === EmploymentStatusCode.WORKING) || empStatuses[0],
       attendanceMethod: attMethods.find(m => m.code === 'TIME_MACHINE') || attMethods[0],

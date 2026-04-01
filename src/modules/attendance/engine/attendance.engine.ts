@@ -183,7 +183,6 @@ export class AttendanceEngine {
         'attendanceGroup.defaultShift.restRule',
         'attendanceMethod',
         'employeeType',
-        'jobLevel',
       ],
     });
 

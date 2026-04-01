@@ -10,10 +10,6 @@ export class EmployeeTypeDto {
   typeName: string;
 }
 
-export class JobLevelDto {
-  levelName: string;
-}
-
 export class WorkLocationDto {
   locationName: string;
   address: string;
@@ -49,7 +45,6 @@ export class EmployeeListItemDto {
   company: CompanyDto | null;
   employeeStatus: EmployeeStatusDto | null;
   employeeType: EmployeeTypeDto | null;
-  jobLevel: JobLevelDto | null;
   workLocation: WorkLocationDto | null;
   departments: DepartmentDto[];
   manager: ManagerDto | null;

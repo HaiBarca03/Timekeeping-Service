@@ -123,15 +123,6 @@ export class CreateEmployeeDto {
 
   @ApiProperty({
     required: false,
-    description: 'Job Level Code',
-    example: 'STAFF',
-  })
-  @IsOptional()
-  @IsString()
-  jobLevel?: string;
-
-  @ApiProperty({
-    required: false,
     description: 'Employee Type Code',
     example: 'OFFICIAL',
   })

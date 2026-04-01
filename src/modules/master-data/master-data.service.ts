@@ -7,7 +7,6 @@ import { AttendanceGroup } from './entities/attendance-group.entity';
 import { AttendanceMethod } from './entities/attendance-method.entity';
 import { EmployeeStatus } from './entities/employee-status.entity';
 import { EmployeeType } from './entities/employee-type.entity';
-import { JobLevel } from './entities/job-level.entity';
 import { LeavePolicy } from './entities/leave-policy.entity';
 import { WorkLocation } from './entities/work-locations.entity';
 import { Department } from './entities/department.entity';
@@ -15,7 +14,6 @@ import { BusinessException } from 'src/exceptions/business.exception';
 import { BusinessCodes } from 'src/constants';
 import { UpdateEmployeeDto } from './dto/update-employee.dto';
 import { In } from 'typeorm';
-import { userInfo } from 'os';
 import { CreateEmployeeDto } from './dto/create-employee.dto';
 
 @Injectable()
@@ -38,12 +36,6 @@ export class MasterDataService {
 
     @InjectRepository(EmployeeType)
     private readonly employeeTypeRepository: Repository<EmployeeType>,
-
-    @InjectRepository(JobLevel)
-    private readonly jobLevelRepository: Repository<JobLevel>,
-
-    @InjectRepository(LeavePolicy)
-    private readonly leavePolicyRepository: Repository<LeavePolicy>,
 
     @InjectRepository(WorkLocation)
     private readonly workLocationRepository: Repository<WorkLocation>,
@@ -72,7 +64,6 @@ export class MasterDataService {
         'employeeStatus',
         'company',
         'workLocation',
-        'jobLevel',
         'manager',
         'employeeType',
         'departments',
@@ -106,8 +97,6 @@ export class MasterDataService {
       employeeType: e.employeeType
         ? { typeName: e.employeeType.typeName }
         : null,
-
-      jobLevel: e.jobLevel ? { levelName: e.jobLevel.levelName } : null,
 
       workLocation: e.workLocation
         ? {
@@ -156,7 +145,6 @@ export class MasterDataService {
         'company',
         'attendanceGroup',
         'workLocation',
-        'jobLevel',
         'manager',
         'employeeType',
         'departments',
@@ -205,7 +193,6 @@ export class MasterDataService {
     const companyOriginIds = new Set<string>();
     const workLocationOriginIds = new Set<string>();
     const attendanceGroupOriginIds = new Set<string>();
-    const jobLevelCodes = new Set<string>();
     const employeeTypeCodes = new Set<string>();
     const employeeStatusCodes = new Set<string>();
     const attendanceMethodCodes = new Set<string>();
@@ -216,7 +203,6 @@ export class MasterDataService {
       if (dto.companyOriginId) companyOriginIds.add(dto.companyOriginId);
       if (dto.workLocationOriginId) workLocationOriginIds.add(dto.workLocationOriginId);
       if (dto.attendanceGroupOriginId) attendanceGroupOriginIds.add(dto.attendanceGroupOriginId);
-      if (dto.jobLevel) jobLevelCodes.add(dto.jobLevel);
       if (dto.employeeType) employeeTypeCodes.add(dto.employeeType);
       if (dto.employeeStatus) employeeStatusCodes.add(dto.employeeStatus);
       if (dto.attendanceMethod) attendanceMethodCodes.add(dto.attendanceMethod);
@@ -232,7 +218,6 @@ export class MasterDataService {
       companies,
       locations,
       groups,
-      jobLevels,
       empTypes,
       empStatuses,
       attMethods,
@@ -242,7 +227,6 @@ export class MasterDataService {
       this.companyRepository.findBy({ originId: In([...companyOriginIds]) }),
       this.workLocationRepository.findBy({ originId: In([...workLocationOriginIds]) }),
       this.attendanceGroupRepository.findBy({ originId: In([...attendanceGroupOriginIds]) }),
-      this.jobLevelRepository.findBy({ code: In([...jobLevelCodes]) }),
       this.employeeTypeRepository.findBy({ code: In([...employeeTypeCodes]) }),
       this.employeeStatusRepository.findBy({ code: In([...employeeStatusCodes]) }),
       this.attendanceMethodRepository.findBy({ code: In([...attendanceMethodCodes]) }),
@@ -253,7 +237,6 @@ export class MasterDataService {
     const companyMap = new Map(companies.map(c => [c.originId, c]));
     const locationMap = new Map(locations.map(l => [l.originId, l]));
     const groupMap = new Map(groups.map(g => [g.originId, g]));
-    const jobLevelMap = new Map(jobLevels.map(j => [j.code, j]));
     const empTypeMap = new Map(empTypes.map(t => [t.code, t]));
     const empStatusMap = new Map(empStatuses.map(s => [s.code, s]));
     const attMethodMap = new Map(attMethods.map(m => [m.code, m]));
@@ -288,11 +271,6 @@ export class MasterDataService {
         if (cleanedDto.attendanceGroupOriginId) {
           const g = groupMap.get(cleanedDto.attendanceGroupOriginId);
           if (g) relations.attendanceGroup = g;
-        }
-
-        if (cleanedDto.jobLevel) {
-          const jl = jobLevelMap.get(cleanedDto.jobLevel);
-          if (jl) relations.jobLevel = jl;
         }
 
         if (cleanedDto.employeeType) {
@@ -364,7 +342,6 @@ export class MasterDataService {
     const companyOriginIds = new Set<string>();
     const workLocationOriginIds = new Set<string>();
     const attendanceGroupOriginIds = new Set<string>();
-    const jobLevelCodes = new Set<string>();
     const employeeTypeCodes = new Set<string>();
     const employeeStatusCodes = new Set<string>();
     const attendanceMethodCodes = new Set<string>();
@@ -377,7 +354,6 @@ export class MasterDataService {
       if (dto.companyOriginId) companyOriginIds.add(dto.companyOriginId);
       if (dto.workLocationOriginId) workLocationOriginIds.add(dto.workLocationOriginId);
       if (dto.attendanceGroupOriginId) attendanceGroupOriginIds.add(dto.attendanceGroupOriginId);
-      if (dto.jobLevel) jobLevelCodes.add(dto.jobLevel);
       if (dto.employeeType) employeeTypeCodes.add(dto.employeeType);
       if (dto.employeeStatus) employeeStatusCodes.add(dto.employeeStatus);
       if (dto.attendanceMethod) attendanceMethodCodes.add(dto.attendanceMethod);
@@ -394,7 +370,6 @@ export class MasterDataService {
       companies,
       locations,
       groups,
-      jobLevels,
       empTypes,
       empStatuses,
       attMethods,
@@ -410,7 +385,6 @@ export class MasterDataService {
       this.companyRepository.findBy({ originId: In([...companyOriginIds]) }),
       this.workLocationRepository.findBy({ originId: In([...workLocationOriginIds]) }),
       this.attendanceGroupRepository.findBy({ originId: In([...attendanceGroupOriginIds]) }),
-      this.jobLevelRepository.findBy({ code: In([...jobLevelCodes]) }),
       this.employeeTypeRepository.findBy({ code: In([...employeeTypeCodes]) }),
       this.employeeStatusRepository.findBy({ code: In([...employeeStatusCodes]) }),
       this.attendanceMethodRepository.findBy({ code: In([...attendanceMethodCodes]) }),
@@ -427,7 +401,6 @@ export class MasterDataService {
     const companyMap = new Map(companies.map(c => [c.originId, c]));
     const locationMap = new Map(locations.map(l => [l.originId, l]));
     const groupMap = new Map(groups.map(g => [g.originId, g]));
-    const jobLevelMap = new Map(jobLevels.map(j => [j.code, j]));
     const empTypeMap = new Map(empTypes.map(t => [t.code, t]));
     const empStatusMap = new Map(empStatuses.map(s => [s.code, s]));
     const attMethodMap = new Map(attMethods.map(m => [m.code, m]));
@@ -463,11 +436,6 @@ export class MasterDataService {
         if (cleanedDto.attendanceGroupOriginId) {
           const g = groupMap.get(cleanedDto.attendanceGroupOriginId);
           if (g) relations.attendanceGroup = g;
-        }
-
-        if (cleanedDto.jobLevel) {
-          const jl = jobLevelMap.get(cleanedDto.jobLevel);
-          if (jl) relations.jobLevel = jl;
         }
 
         if (cleanedDto.employeeType) {
@@ -560,14 +528,6 @@ export class MasterDataService {
         originId: dto.attendanceGroupOriginId,
       });
       if (group) relations.attendanceGroup = group;
-    }
-
-    // 4. Job Level
-    if (dto.jobLevel) {
-      const jobLevel = await this.jobLevelRepository.findOneBy({
-        code: dto.jobLevel,
-      });
-      if (jobLevel) relations.jobLevel = jobLevel;
     }
 
     // 5. Employee Type
