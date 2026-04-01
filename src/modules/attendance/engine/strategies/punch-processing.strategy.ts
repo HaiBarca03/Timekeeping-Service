@@ -49,7 +49,7 @@ export class PunchProcessingStrategy {
 
     // ===== NO PUNCH REQUIRED =====
     if (
-      context.employee.attendanceMethod?.methodName ===
+      context.employee.attendanceMethod?.code ===
       WorkMethodCode.NO_PUNCH_REQUIRED
     ) {
 
