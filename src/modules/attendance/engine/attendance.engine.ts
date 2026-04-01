@@ -368,9 +368,16 @@ export class AttendanceEngine {
 
     const assignments = await this.shiftAssignmentRepo.find({
       where: { employeeId, isActive: true },
-      select: ['originId'],
+      relations: ['shift'],
     });
-    const shiftOriginIds = [...new Set(assignments.map((a) => a.shiftId))];
+
+    const shiftOriginIds = assignments
+      .map((a) => a.shift?.originId)
+      .filter((id) => !!id);
+
+    const assignmentOriginIds = assignments
+      .map((a) => a.originId)
+      .filter((id) => !!id);
 
     const whereConditions: any[] = [
       { entity_type: 'EMPLOYEE', entity_id: employeeId, is_active: true },
@@ -395,7 +402,15 @@ export class AttendanceEngine {
     if (shiftOriginIds.length > 0) {
       whereConditions.push({
         entity_type: 'SHIFT',
-        entity_id: In(shiftOriginIds),
+        entity_id: In([...new Set(shiftOriginIds)]),
+        is_active: true,
+      });
+    }
+
+    if (assignmentOriginIds.length > 0) {
+      whereConditions.push({
+        entity_type: 'SHIFT_ASSIGNMENT',
+        entity_id: In([...new Set(assignmentOriginIds)]),
         is_active: true,
       });
     }
@@ -452,7 +467,6 @@ export class AttendanceEngine {
 
       switch (override.entity_type) {
         case 'SHIFT':
-        case 'SHIFT_ASSIGNMENT':
           if (context.shiftContext?.shift) {
             const shiftData = values.shiftContext || values;
 
@@ -462,10 +476,57 @@ export class AttendanceEngine {
             if (shiftData.endTime) {
               context.shiftContext.shift.endTime = this.combineDateAndTime(context.date, shiftData.endTime);
             }
-            this.logger.debug(`[Override] Updated Shift properties: ${context.shiftContext.shift.startTime.toISOString()} to ${context.shiftContext.shift.endTime.toISOString()}`);
+            this.logger.debug(
+              `[Override] Updated Shift properties: ${context.shiftContext.shift.startTime.toISOString()} to ${context.shiftContext.shift.endTime.toISOString()}`,
+            );
           }
           break;
 
+        case 'SHIFT_ASSIGNMENT':
+          const currentAssignments = context.shiftContext?.assignments;
+          if (currentAssignments && currentAssignments.length > 0) {
+            const assignment = currentAssignments.find(
+              (a) => a.originId === override.entity_id,
+            );
+            if (assignment) {
+              this.logger.debug(
+                `[Override] Found matching Assignment: ${assignment.originId}. Updating props...`,
+              );
+              if (values.onTime) {
+                assignment.onTime = this.combineDateAndTime(context.date, values.onTime);
+              }
+              if (values.offTime) {
+                assignment.offTime = this.combineDateAndTime(context.date, values.offTime);
+              }
+              if (values.isActive !== undefined) {
+                assignment.isActive = values.isActive;
+              }
+
+              // Đổi CA gốc cho phân ca này
+              if (values.shiftOriginId) {
+                const newShift = await this.shiftRepo.findOne({
+                  where: { originId: values.shiftOriginId },
+                  relations: ['restRule'],
+                });
+                if (newShift) {
+                  assignment.shiftId = newShift.id;
+                  assignment.shift = newShift;
+                  this.logger.debug(
+                    `[Override] Switched ShiftAssignment ${assignment.originId} to new Shift template: ${newShift.code}`,
+                  );
+                }
+              }
+
+              this.logger.debug(
+                `[Override] Updated Assignment ${assignment.originId}: ${assignment.onTime?.toISOString()} - ${assignment.offTime?.toISOString()} | Shift: ${assignment.shift?.code} | Active: ${assignment.isActive}`,
+              );
+            } else {
+              this.logger.warn(
+                `[Override] SHIFT_ASSIGNMENT with originId ${override.entity_id} not found in current calculation context.`,
+              );
+            }
+          }
+          break;
         case 'ATTENDANCE_GROUP':
           if (context.employee?.attendanceGroup) {
             this.logger.debug(`[Override] Overwriting Group props: ${Object.keys(values).join(', ')}`);
@@ -487,10 +548,15 @@ export class AttendanceEngine {
 
             // 2. Ghi đè Attendance Method
             if (values.attendanceMethodOriginId) {
-              const method = await this.attendanceMethodRepo.findOneBy({ code: values.attendanceMethodOriginId });
+              const method = await this.attendanceMethodRepo.findOneBy({
+                code: values.attendanceMethodOriginId,
+                companyId: context.companyId,
+              });
               if (method) {
                 context.employee.attendanceMethod = method;
-                this.logger.debug(`[Override] Switched Attendance Method to: ${method.methodName}`);
+                this.logger.debug(
+                  `[Override] Switched Attendance Method to: ${method.methodName}`,
+                );
               }
             }
 
@@ -510,7 +576,6 @@ export class AttendanceEngine {
             }
           }
           break;
-
         case 'EMPLOYEE':
           if (context.employee) {
             this.logger.debug(`[Override] Overwriting Employee props: ${Object.keys(values).join(', ')}`);
@@ -520,10 +585,15 @@ export class AttendanceEngine {
 
             // Ghi đè Attendance Method cho nhân viên
             if (values.attendanceMethodOriginId) {
-              const empMethod = await this.attendanceMethodRepo.findOneBy({ code: values.attendanceMethodOriginId });
+              const empMethod = await this.attendanceMethodRepo.findOneBy({
+                code: values.attendanceMethodOriginId,
+                companyId: context.companyId,
+              });
               if (empMethod) {
                 context.employee.attendanceMethod = empMethod;
-                this.logger.debug(`[Override] Switched Employee Attendance Method to: ${empMethod.methodName}`);
+                this.logger.debug(
+                  `[Override] Switched Employee Attendance Method to: ${empMethod.methodName}`,
+                );
               }
             }
 
@@ -552,6 +622,27 @@ export class AttendanceEngine {
               const empGroupShiftContext = await this.shiftResolver.resolveShift(context);
               context.shiftContext = empGroupShiftContext;
               this.logger.debug(`[Override] Employee auto-switched to new Group's default Shift: ${empGroupShiftContext.shift?.code}`);
+            }
+          }
+          break;
+        case 'DEPARTMENT':
+          if (context.employee?.departments) {
+            this.logger.debug(
+              `[Override] Overwriting Department props: ${Object.keys(values).join(', ')}`,
+            );
+
+            // Ghi đè Attendance Method cho phòng ban
+            if (values.attendanceMethodOriginId) {
+              const deptMethod = await this.attendanceMethodRepo.findOneBy({
+                code: values.attendanceMethodOriginId,
+                companyId: context.companyId,
+              });
+              if (deptMethod) {
+                context.employee.attendanceMethod = deptMethod;
+                this.logger.debug(
+                  `[Override] Switched Dept Attendance Method to: ${deptMethod.methodName}`,
+                );
+              }
             }
           }
           break;

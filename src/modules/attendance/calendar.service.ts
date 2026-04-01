@@ -6,6 +6,7 @@ import { ShiftAssignment } from './entities/shift-assignment.entity';
 import { Employee } from '../master-data/entities/employee.entity';
 import { Shift } from '../master-data/entities/shift.entity';
 import { Company } from '../master-data/entities/company.entity';
+import { AttendanceGroup } from '../master-data/entities/attendance-group.entity';
 import { CreateHolidayDto } from './dto/create-holiday.dto';
 import { UpdateHolidayDto } from './dto/update-holiday.dto';
 import { CreateShiftAssignmentDto } from './dto/create-shift-assignment.dto';
@@ -32,6 +33,9 @@ export class CalendarService {
 
     @InjectRepository(Company)
     private readonly companyRepo: Repository<Company>,
+
+    @InjectRepository(AttendanceGroup)
+    private readonly groupRepo: Repository<AttendanceGroup>,
   ) { }
 
   // --- Holiday APIs ---
@@ -90,9 +94,12 @@ export class CalendarService {
   async createShiftAssignment(dto: CreateShiftAssignmentDto) {
     const company = await this.resolveCompany(dto.companyId);
 
-    const employee = await this.employeeRepo.findOneBy({
-      userId: dto.userId,
-      companyId: company.id
+    const employee = await this.employeeRepo.findOne({
+      where: {
+        userId: dto.userId,
+        companyId: company.id
+      },
+      relations: ['attendanceGroup']
     });
     if (!employee) {
       throw new BusinessException(`Employee with user_id ${dto.userId} not found in company ${dto.companyId}`, BusinessCodes.EMPLOYEE_NOT_FOUND.code);
@@ -100,10 +107,30 @@ export class CalendarService {
 
     const shift = await this.shiftRepo.findOneBy({
       originId: dto.shiftOriginId,
-      // companyId: company.id // Shift might be global or company-specific, check entity
     });
     if (!shift) {
       throw new BusinessException(`Shift with origin_id ${dto.shiftOriginId} not found`, BusinessCodes.NOT_FOUND.code);
+    }
+
+    // --- Validation: Check if shift belongs to employee's group ---
+    if (!employee.attendanceGroup) {
+      throw new BusinessException(
+        `Employee ${dto.userId} does not have an attendance group assigned.`,
+        BusinessCodes.VALIDATION_ERROR.code
+      );
+    }
+
+    const isShiftInGroup = await this.shiftRepo.createQueryBuilder('shift')
+      .innerJoin('shift.attendanceGroups', 'group')
+      .where('shift.id = :shiftId', { shiftId: shift.id })
+      .andWhere('group.id = :groupId', { groupId: employee.attendanceGroup.id })
+      .getExists();
+
+    if (!isShiftInGroup) {
+      throw new BusinessException(
+        `Shift ${dto.shiftOriginId} is not allowed for employee's group (${employee.attendanceGroup.groupName}).`,
+        BusinessCodes.VALIDATION_ERROR.code
+      );
     }
 
     const { companyId, userId, shiftOriginId, ...data } = dto;
@@ -133,16 +160,41 @@ export class CalendarService {
       assignment.companyId = companyId;
     }
 
-    if (dto.userId) {
-      const employee = await this.employeeRepo.findOneBy({ userId: dto.userId, companyId });
-      if (!employee) throw new BusinessException('Employee not found', BusinessCodes.EMPLOYEE_NOT_FOUND.code);
-      assignment.employeeId = employee.id;
-    }
+    if (dto.shiftOriginId || dto.userId) {
+      const targetUserId = dto.userId || assignment.employee?.userId;
+      const targetShiftOriginId = dto.shiftOriginId || assignment.shift?.originId;
 
-    if (dto.shiftOriginId) {
-      const shift = await this.shiftRepo.findOneBy({ originId: dto.shiftOriginId });
-      if (!shift) throw new BusinessException('Shift not found', BusinessCodes.NOT_FOUND.code);
-      assignment.shiftId = shift.id;
+      if (targetUserId && targetShiftOriginId) {
+        const employee = await this.employeeRepo.findOne({
+          where: { userId: targetUserId, companyId },
+          relations: ['attendanceGroup']
+        });
+        const shift = await this.shiftRepo.findOneBy({ originId: targetShiftOriginId });
+
+        if (employee && shift) {
+          if (!employee.attendanceGroup) {
+            throw new BusinessException(`Employee ${targetUserId} has no attendance group.`, BusinessCodes.VALIDATION_ERROR.code);
+          }
+          const isShiftInGroup = await this.shiftRepo.createQueryBuilder('shift')
+            .innerJoin('shift.attendanceGroups', 'group')
+            .where('shift.id = :shiftId', { shiftId: shift.id })
+            .andWhere('group.id = :groupId', { groupId: employee.attendanceGroup.id })
+            .getExists();
+
+          if (!isShiftInGroup) {
+            throw new BusinessException(
+              `Shift ${targetShiftOriginId} is not allowed for group ${employee.attendanceGroup.groupName}.`,
+              BusinessCodes.VALIDATION_ERROR.code
+            );
+          }
+          assignment.employeeId = employee.id;
+          assignment.shiftId = shift.id;
+        } else if (dto.userId && !employee) {
+          throw new BusinessException('Employee not found', BusinessCodes.EMPLOYEE_NOT_FOUND.code);
+        } else if (dto.shiftOriginId && !shift) {
+          throw new BusinessException('Shift not found', BusinessCodes.NOT_FOUND.code);
+        }
+      }
     }
 
     Object.assign(assignment, {
@@ -163,8 +215,14 @@ export class CalendarService {
 
     const [companies, employees, shifts] = await Promise.all([
       this.companyRepo.findBy({ id: In(companyIds) }),
-      this.employeeRepo.findBy({ userId: In(userIds) }), // Note: might need company filter if userId is not unique globally
-      this.shiftRepo.findBy({ originId: In(shiftOriginIds) }),
+      this.employeeRepo.find({
+        where: { userId: In(userIds) },
+        relations: ['attendanceGroup']
+      }),
+      this.shiftRepo.find({
+        where: { originId: In(shiftOriginIds) },
+        relations: ['attendanceGroups']
+      }),
     ]);
 
     const companyMap = new Map(companies.map(c => [c.id, c]));
@@ -181,6 +239,18 @@ export class CalendarService {
 
       const shift = shiftMap.get(dto.shiftOriginId);
       if (!shift) throw new Error(`Shift ${dto.shiftOriginId} not found`);
+
+      // --- Validation: Shift in Group ---
+      if (!employee.attendanceGroup) {
+        throw new BusinessException(`Employee ${dto.userId} has no group.`, BusinessCodes.VALIDATION_ERROR.code);
+      }
+      const isAllowed = shift.attendanceGroups.some(g => g.id === employee.attendanceGroup.id);
+      if (!isAllowed) {
+        throw new BusinessException(
+          `Shift ${dto.shiftOriginId} not allowed for group ${employee.attendanceGroup.groupName} (Employee: ${dto.userId})`,
+          BusinessCodes.VALIDATION_ERROR.code
+        );
+      }
 
       const { companyId, userId, shiftOriginId, ...data } = dto;
       return this.shiftAssignmentRepo.create({
