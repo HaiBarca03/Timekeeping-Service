@@ -11,7 +11,6 @@ import {
 import { BaseEntity } from '../../../database/entities/base.entity';
 import { Company } from './company.entity';
 import { AttendanceGroup } from './attendance-group.entity';
-import { JobLevel } from './job-level.entity';
 import { EmployeeType } from './employee-type.entity';
 import { EmployeeStatus } from './employee-status.entity';
 import { AttendanceMethod } from './attendance-method.entity';
@@ -92,10 +91,6 @@ export class Employee extends BaseEntity {
   @ManyToOne(() => AttendanceGroup)
   @JoinColumn({ name: 'attendance_group_id' })
   attendanceGroup: AttendanceGroup;
-
-  @ManyToOne(() => JobLevel)
-  @JoinColumn({ name: 'job_level_id' })
-  jobLevel: JobLevel;
 
   @ManyToOne(() => EmployeeType)
   @JoinColumn({ name: 'employee_type_id' })

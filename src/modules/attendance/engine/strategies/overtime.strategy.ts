@@ -24,17 +24,6 @@ export class OvertimeStrategy {
     );
     const { employee, date } = context;
 
-    // Quy tắc: Chỉ nhân viên mới tính OT, Quản lý (MGR, HEAD, DIR...) không tính.
-    const jobLevelCode = employee.jobLevel?.code?.toUpperCase();
-    const managementCodes = ['MGR', 'HEAD', 'DIR', 'CEO', 'MANAGER'];
-
-    if (managementCodes.some((code) => jobLevelCode?.includes(code))) {
-      this.logger.debug(
-        `Skipping OT: Employee ${employee.id} is Management level (${jobLevelCode})`,
-      );
-      return;
-    }
-
     const otRequest = await this.requestRepo
       .createQueryBuilder('request')
       .innerJoin('request.detail_overtime', 'detail')
